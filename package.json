@@ -1,0 +1,23 @@
+{
+  "name": "webpagedump",
+  "version": "1.0.6",
+  "description": "Get the content of a js renderd webpage",
+  "main": "index.js",
+  "scripts": {
+    "run": "node index.js",
+    "test": "node index.js -u 'https://example.com' -O 'example.html' && cat example.html | grep 'This domain is for use in illustrative examples in documents.'"
+  },
+  "bin": {
+    "webpagedump": "./index.js"
+  },
+  "keywords": [
+    "screenshot",
+    "webpage"
+  ],
+  "author": "Abin Simon <abinsimon10@gmail.com> (meain.io)",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^5.0.0",
+    "puppeteer": "^3.0.0"
+  }
+}
