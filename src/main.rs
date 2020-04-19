@@ -1,10 +1,8 @@
 mod utils;
 
 use serde_json::Value;
-use serde_json::map::Map;
 use futures::future::try_join_all;
 use std::error::Error;
-use std::collections::HashMap;
 use tokio;
 
 #[derive(Debug, Clone)]
@@ -20,6 +18,7 @@ struct Dep {
     name: String,
     specified_version: DepVersion, // from config files
     current_version: DepVersion,   // parsed from lockfiles
+    available_versions: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -62,6 +61,7 @@ fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepList> {
                             name: key.to_string(),
                             specified_version: DepVersion::Version(v.to_string()),
                             current_version: get_lockfile_version(&lockfile, &key),
+                            available_versions: None,
                         };
                         dep_list.deps.push(d);
                     }
@@ -70,6 +70,7 @@ fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepList> {
                             name: key.to_string(),
                             specified_version: DepVersion::Error,
                             current_version: get_lockfile_version(&lockfile, &key),
+                            available_versions: None,
                         };
                         dep_list.deps.push(d);
                     }
@@ -91,7 +92,7 @@ async fn fetch_resp(dep: &str) -> Result<Value, Box<dyn Error>> {
 
 }
 
-async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<HashMap<String, Map<String, Value>>,Box<dyn Error + 'static>> {
+async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn Error + 'static>> {
     let mut gets = vec!();
     for dep_list in &dep_list_list.lists {
         for dep in &dep_list.deps {
@@ -101,16 +102,52 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<HashMap<Stri
     }
     let results = try_join_all(gets).await?;
 
-    let mut dep_infos: HashMap<String, Map<String, Value>> = HashMap::new();
-    for result in &results {
-        if let Value::Object(di) = &result {
-            if let Value::String(dname) = &di["name"]{
-                dep_infos.insert(dname.to_string(), di.clone());
+    let mut counter = 0;
+    for dep_list in &mut dep_list_list.lists {
+        for dep in &mut dep_list.deps {
+            if !results[counter].is_null() {
+                if let Value::Object(versions) = &results[counter]["versions"] {
+                    let mut key_list: Vec<String> = Vec::new();
+                    for key in versions.keys(){
+                        key_list.push(key.to_string());
+                    }
+                    dep.available_versions = Some(key_list);
+                }
             }
+            counter += 1;
         }
     }
 
-    Ok(dep_infos)
+    Ok(())
+}
+
+fn printer(dep_list_list: &DepListList){
+    for dep_list in &dep_list_list.lists {
+        let kind = dep_list.name.to_string();
+        for dep in &dep_list.deps {
+            let name = dep.name.to_string();
+            let specified_version = match &dep.specified_version {
+                DepVersion::None => "unknown".to_string(),
+                DepVersion::Error => "invalid".to_string(),
+                DepVersion::Version(v) => v.to_string()
+            };
+            let current_version = match &dep.current_version {
+                DepVersion::None => "unknown".to_string(),
+                DepVersion::Error => "invalid".to_string(),
+                DepVersion::Version(v) => v.to_string()
+            };
+            let latest_version = match &dep.available_versions{
+                None => "unknown".to_string(),
+                Some(versions) => {
+                    match versions.last() {  // TODO: last might not be the latest version in case of a dict
+                        Some(v) => v.to_string(),
+                        None => "unknown".to_string()
+                    }
+                }
+            };
+            println!("{}: [{}] {}({}) => {}", kind, name, specified_version, current_version, latest_version);
+        }
+    }
 }
 
 #[tokio::main]
@@ -128,10 +165,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(d) = dl {
         dep_list_list.lists.push(d);
     }
-    println!("dep_list_list: {:?}", dep_list_list);
 
-    let dep_infos = fetch_dep_infos(&mut dep_list_list).await?;
-    println!("dep_infos: {:?}", dep_infos.keys());
+    fetch_dep_infos(&mut dep_list_list).await?;
+    printer(&dep_list_list);
+    // println!("dep_list_list: {:?}", dep_list_list);
 
     Ok(())
 }
