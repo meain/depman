@@ -4,6 +4,7 @@ use serde_json::Value;
 use futures::future::try_join_all;
 use std::error::Error;
 use tokio;
+use humanesort::prelude::*;
 
 #[derive(Debug, Clone)]
 enum DepVersion {
@@ -111,6 +112,7 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
                     for key in versions.keys(){
                         key_list.push(key.to_string());
                     }
+                    key_list.humane_sort();
                     dep.available_versions = Some(key_list);
                 }
             }
@@ -139,7 +141,7 @@ fn printer(dep_list_list: &DepListList){
             let latest_version = match &dep.available_versions{
                 None => "unknown".to_string(),
                 Some(versions) => {
-                    match versions.last() {  // TODO: last might not be the latest version in case of a dict
+                    match versions.last() {
                         Some(v) => v.to_string(),
                         None => "unknown".to_string()
                     }
