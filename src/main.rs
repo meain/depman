@@ -1,11 +1,11 @@
 mod utils;
 
-use serde_json::Value;
 use futures::future::try_join_all;
-use std::error::Error;
-use tokio;
 use humanesort::prelude::*;
 use semver;
+use serde_json::Value;
+use std::error::Error;
+use tokio;
 
 #[derive(Debug, Clone)]
 enum DepVersion {
@@ -25,7 +25,7 @@ enum DepVersionReq {
 struct Dep {
     name: String,
     specified_version: DepVersionReq, // from config files
-    current_version: DepVersion,   // parsed from lockfiles
+    current_version: DepVersion,      // parsed from lockfiles
     available_versions: Option<Vec<DepVersion>>,
     latest_version: Option<DepVersion>,
     latest_semver_version: Option<DepVersion>,
@@ -47,7 +47,7 @@ fn get_lockfile_version(lockfile: &Value, name: &str) -> DepVersion {
         if deps.contains_key(name) {
             if let Value::Object(value) = &deps[name] {
                 if let Value::String(ver) = &value["version"] {
-                    if let Ok(sv) = semver::Version::parse(ver){
+                    if let Ok(sv) = semver::Version::parse(ver) {
                         return DepVersion::Version(sv);
                     }
                 }
@@ -69,7 +69,7 @@ fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepList> {
             for (key, value) in dl {
                 match value {
                     Value::String(v) => {
-                        let specified_version = match semver::VersionReq::parse(v){
+                        let specified_version = match semver::VersionReq::parse(v) {
                             Ok(ver) => DepVersionReq::Version(ver),
                             Err(_) => DepVersionReq::Error,
                         };
@@ -79,7 +79,7 @@ fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepList> {
                             current_version: get_lockfile_version(&lockfile, &key),
                             available_versions: None,
                             latest_version: None,
-                            latest_semver_version: None
+                            latest_semver_version: None,
                         };
                         dep_list.deps.push(d);
                     }
@@ -90,7 +90,7 @@ fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepList> {
                             current_version: get_lockfile_version(&lockfile, &key),
                             available_versions: None,
                             latest_version: None,
-                            latest_semver_version: None
+                            latest_semver_version: None,
                         };
                         dep_list.deps.push(d);
                     }
@@ -104,16 +104,12 @@ fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepList> {
 
 async fn fetch_resp(dep: &str) -> Result<Value, Box<dyn Error>> {
     let url = format!("https://registry.npmjs.org/{}", dep);
-    let resp = reqwest::get(&url)
-        .await?
-        .json()
-        .await?;
+    let resp = reqwest::get(&url).await?.json().await?;
     Ok(resp)
-
 }
 
 async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn Error + 'static>> {
-    let mut gets = vec!();
+    let mut gets = vec![];
     for dep_list in &dep_list_list.lists {
         for dep in &dep_list.deps {
             let get = fetch_resp(&dep.name);
@@ -128,7 +124,8 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
             if !results[counter].is_null() {
                 if let Value::Object(versions) = &results[counter]["versions"] {
                     let mut key_list: Vec<String> = Vec::new();
-                    for key in versions.keys(){  // maybe reverse and lookup?
+                    for key in versions.keys() {
+                        // maybe reverse and lookup?
                         key_list.push(key.to_string());
                     }
                     key_list.humane_sort();
@@ -136,14 +133,14 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
                     let mut parsed_versions: Vec<DepVersion> = Vec::new();
                     let mut latest_semantic_version: Option<DepVersion> = None;
                     let mut latest_version: Option<DepVersion> = None;
-                    for key in key_list{
-
-                        if let Ok(valid_version) = semver::Version::parse(&key){
+                    for key in key_list {
+                        if let Ok(valid_version) = semver::Version::parse(&key) {
                             parsed_versions.push(DepVersion::Version(valid_version.clone()));
                             latest_version = Some(DepVersion::Version(valid_version.clone()));
                             if let DepVersionReq::Version(spec) = &dep.specified_version {
-                                if spec.matches(&valid_version){
-                                    latest_semantic_version = Some(DepVersion::Version(valid_version.clone()));
+                                if spec.matches(&valid_version) {
+                                    latest_semantic_version =
+                                        Some(DepVersion::Version(valid_version.clone()));
                                 }
                             }
                         };
@@ -160,42 +157,42 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
     Ok(())
 }
 
-fn printer(dep_list_list: &DepListList){
+fn printer(dep_list_list: &DepListList) {
     for dep_list in &dep_list_list.lists {
         let kind = dep_list.name.to_string();
         for dep in &dep_list.deps {
             let name = dep.name.to_string();
             let specified_version = match &dep.specified_version {
                 DepVersionReq::Error => "invalid".to_string(),
-                DepVersionReq::Version(v) => v.to_string()
+                DepVersionReq::Version(v) => v.to_string(),
             };
             let current_version = match &dep.current_version {
                 DepVersion::Error => "invalid".to_string(),
-                DepVersion::Version(v) => v.to_string()
+                DepVersion::Version(v) => v.to_string(),
             };
-            let latest_version = match &dep.latest_version{
-                Some(version) => {
-                    match version {
-                        DepVersion::Version(ver) => {
-                            ver.to_string()
-                        },
-                        DepVersion::Error => "error".to_string()
-                    }
-                }
+            let latest_version = match &dep.latest_version {
+                Some(version) => match version {
+                    DepVersion::Version(ver) => ver.to_string(),
+                    DepVersion::Error => "error".to_string(),
+                },
                 None => "unknown".to_string(),
             };
-            let latest_semver_version = match &dep.latest_semver_version{
-                Some(version) => {
-                    match version {
-                        DepVersion::Version(ver) => {
-                            ver.to_string()
-                        },
-                        DepVersion::Error => "error".to_string()
-                    }
-                }
+            let latest_semver_version = match &dep.latest_semver_version {
+                Some(version) => match version {
+                    DepVersion::Version(ver) => ver.to_string(),
+                    DepVersion::Error => "error".to_string(),
+                },
                 None => "unknown".to_string(),
             };
-            println!("{}: [{}] {}({}) => {}({})", kind, name, specified_version, current_version, latest_semver_version, latest_version);
+            println!(
+                "{}: [{}] {}({}) => {}({})",
+                kind,
+                name,
+                specified_version,
+                current_version,
+                latest_semver_version,
+                latest_version
+            );
         }
     }
 }
