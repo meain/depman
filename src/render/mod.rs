@@ -151,6 +151,7 @@ impl App {
                 ["o", "open homepage"],
             ];
             let mut text = vec![];
+            text.push(Text::styled("Keybindings\n", Style::default().fg(Color::Cyan).modifier(Modifier::UNDERLINED)));
             for item in help_items.iter() {
                 text.push(Text::styled(
                     format!("{:<10}", item[0]),
@@ -158,6 +159,13 @@ impl App {
                 ));
                 text.push(Text::raw(format!("{}\n", item[1])));
             }
+            text.push(Text::styled("\n\nColors\n", Style::default().fg(Color::Cyan).modifier(Modifier::UNDERLINED)));
+            text.push(Text::styled("Green", Style::default().fg(Color::Green)));
+            text.push(Text::styled(" Patch upgrade\n", Style::default()));
+            text.push(Text::styled("Magenta", Style::default().fg(Color::Magenta)));
+            text.push(Text::styled(" Minor upgrade\n", Style::default()));
+            text.push(Text::styled("Red", Style::default().fg(Color::Red)));
+            text.push(Text::styled(" Major upgrade\n", Style::default()));
             let block = Paragraph::new(text.iter())
                 .block(
                     Block::default()
