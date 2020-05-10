@@ -91,6 +91,14 @@ pub struct Dep {
     pub latest_semver_version: Option<DepVersion>,
 }
 
+pub enum UpgradeType {
+    None,
+    Patch,
+    Minor,
+    Major,
+    // maybe unknown
+}
+
 impl Dep {
     pub fn get_name(&self) -> String {
         self.name.to_string()
@@ -120,6 +128,30 @@ impl Dep {
         }
     }
 
+    pub fn get_ugrade_type(&self) -> UpgradeType {
+        match &self.current_version {
+            DepVersion::Version(cv) => match &self.latest_semver_version {
+                Some(svv) => match svv {
+                    DepVersion::Version(sv) => {
+                        if cv.major < sv.major {
+                            return UpgradeType::Major;
+                        }
+                        if cv.minor < sv.minor {
+                            return UpgradeType::Minor;
+                        }
+                        if cv.patch < sv.patch {
+                            return UpgradeType::Patch;
+                        }
+                    }
+                    _ => {}
+                },
+                _ => {}
+            },
+            _ => {}
+        }
+        UpgradeType::None
+    }
+
     pub fn get_version_strings(&self) -> Vec<String> {
         let mut version_strings = vec![];
         if let Some(av) = &self.available_versions {
@@ -142,7 +174,7 @@ impl Dep {
         }
     }
     pub fn get_latest_semver_version(&self) -> String {
-        match &self.latest_version {
+        match &self.latest_semver_version {
             Some(v) => v.to_string(),
             None => "<unknown>".to_string(),
         }

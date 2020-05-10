@@ -136,7 +136,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     fetch_dep_infos(&mut dep_list_list).await?;
     printer(&dep_list_list);
 
-    if false {
+    if true {
         let stdout = io::stdout().into_raw_mode()?;
         let backend = TermionBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
