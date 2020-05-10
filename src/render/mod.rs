@@ -176,11 +176,33 @@ impl App {
     }
     pub fn render_version_selector<B: Backend>(&mut self, f: &mut Frame<B>) {
         if let Some(d) = self.get_current_dep() {
-            // TODO
-            let upgrade_type = d.get_ugrade_type();
+            // let upgrade_type = d.get_ugrade_type();
             if self.popup_shown {
                 let items = self.versions.items.iter().map(|i| Text::raw(i));
-                let block = List::new(items)
+
+                let mut items = vec![];
+                for item in self.versions.items.iter() {
+                    let mut color = Color::Black;
+                    if &d.current_version.to_string() == item {
+                        color = Color::Cyan;
+                    } else if &d.get_latest_semver_version() == item {
+                        color = Color::Green;
+                    }
+                    items.push(Text::styled(item, Style::default().fg(color)));
+                }
+
+                let mut color = Color::Black;
+                let current_item = self.versions.state.selected();
+                if let Some(ci) = current_item {
+                    let item = &self.versions.items[ci];
+                    if &d.current_version.to_string() == item {
+                        color = Color::Cyan;
+                    } else if &d.get_latest_semver_version() == item {
+                        color = Color::Green;
+                    }
+                }
+
+                let block = List::new(items.into_iter())
                     .block(
                         Block::default()
                             .title("Versions")
@@ -189,7 +211,8 @@ impl App {
                             .border_style(Style::default().fg(Color::Red)),
                     )
                     .style(Style::default())
-                    .highlight_style(Style::default().bg(Color::White));
+                    .highlight_style(Style::default().fg(color))
+                    .highlight_symbol("■ "); // ║ ▓ ■
 
                 let area = centered_rect(50, 50, f.size());
                 f.render_widget(Clear, area); //this clears out the background
@@ -281,7 +304,7 @@ impl App {
                 )
                 .style(Style::default())
                 .highlight_style(Style::default().fg(get_version_color(dc_upgrade_type)))
-                .highlight_symbol("■ ");  // ║ ▓ ■
+                .highlight_symbol("■ "); // ║ ▓ ■
             f.render_stateful_widget(block, chunk, &mut self.items.state);
         }
     }
