@@ -8,11 +8,12 @@ use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Tex
 use std::process::Command;
 use tui::terminal::Frame;
 
-use crate::parser::{DepListList, DepVersion, DepVersionReq};
+use crate::parser::{Dep, DepListList, DepVersion, DepVersionReq};
 
 pub struct App {
     data: DepListList,
     items: StatefulList<String>,
+    versions: StatefulList<String>,
     tabs: TabsState,
     popup_shown: bool,
     help_menu_shown: bool,
@@ -26,9 +27,14 @@ impl App {
     pub fn new(dep_list_list: DepListList) -> App {
         let dep_kinds = dep_list_list.get_dep_kinds();
         let dep_names = dep_list_list.get_dep_names_of_kind(&dep_kinds[0]);
+        let mut dep_versions = vec![];
+        if let Some(dep) = dep_list_list.get_dep(&dep_names[0]) {
+            dep_versions = dep.get_version_strings();
+        }
         App {
             data: dep_list_list,
             items: StatefulList::with_items(dep_names),
+            versions: StatefulList::with_items(dep_versions),
             tabs: TabsState::new(dep_kinds),
             popup_shown: false,
             help_menu_shown: false,
@@ -37,6 +43,10 @@ impl App {
             style_minor: Style::default().fg(Color::Magenta),
             style_major: Style::default().fg(Color::Red),
         }
+    }
+
+    pub fn get_current_dep(&mut self) -> Option<Dep> {
+        self.data.get_dep(&self.items.get_item())
     }
 
     pub fn open_homepage(&mut self) {
@@ -79,10 +89,30 @@ impl App {
         self.items = StatefulList::with_items(dep_names);
     }
     pub fn next(&mut self) {
-        self.items.next()
+        if self.popup_shown {
+            self.versions.next();
+        } else {
+            self.items.next();
+            let mut dep_versions = vec![];
+            if let Some(dep) = self.get_current_dep() {
+                dep_versions = dep.get_version_strings();
+            }
+            self.versions = StatefulList::with_items(dep_versions);
+            self.versions.reset();
+        }
     }
     pub fn previous(&mut self) {
-        self.items.previous()
+        if self.popup_shown {
+            self.versions.previous();
+        } else {
+            self.items.previous();
+            let mut dep_versions = vec![];
+            if let Some(dep) = self.get_current_dep() {
+                dep_versions = dep.get_version_strings();
+            }
+            self.versions = StatefulList::with_items(dep_versions);
+            self.versions.reset();
+        }
     }
     pub fn render_help_menu<B: Backend>(&mut self, f: &mut Frame<B>) {
         if self.help_menu_shown {
@@ -120,13 +150,24 @@ impl App {
         }
     }
     pub fn render_version_selector<B: Backend>(&mut self, f: &mut Frame<B>) {
-        if self.popup_shown {
-            let block = Block::default()
-                .title("Choose version")
-                .borders(Borders::ALL);
-            let area = centered_rect(50, 80, f.size());
-            f.render_widget(Clear, area); //this clears out the background
-            f.render_widget(block, area);
+        if let Some(d) = self.get_current_dep() {
+            if self.popup_shown {
+                let items = self.versions.items.iter().map(|i| Text::raw(i));
+                let block = List::new(items)
+                    .block(
+                        Block::default()
+                            .title("Versions")
+                            .borders(Borders::ALL)
+                            .border_type(BorderType::Rounded)
+                            .border_style(Style::default().fg(Color::White)),
+                    )
+                    .style(Style::default())
+                    .highlight_style(Style::default().bg(Color::White));
+
+                let area = centered_rect(50, 80, f.size());
+                f.render_widget(Clear, area); //this clears out the background
+                f.render_widget(block, area);
+            }
         }
     }
 
@@ -143,7 +184,7 @@ impl App {
     }
 
     pub fn render_dependency_info<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
-        let dep = self.data.get_dep(&self.items.get_item());
+        let dep = self.get_current_dep();
         if let Some(d) = dep {
             let text = [
                 Text::styled("Name", Style::default().fg(Color::Red)),

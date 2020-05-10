@@ -53,6 +53,15 @@ pub struct Dep {
 }
 
 impl Dep {
+    pub fn get_version_strings(&self) -> Vec<String> {
+        let mut version_strings = vec![];
+        if let Some(av) = &self.available_versions {
+            for version in av.iter().rev() {
+                version_strings.push(version.to_string())
+            }
+        }
+        version_strings
+    }
     pub fn get_specified_version(&self) -> String {
         self.specified_version.to_string()
     }
@@ -94,7 +103,7 @@ impl DepListList {
         kinds
     }
 
-    pub fn get_dep(&mut self, dep_name: &str) -> Option<Dep> {
+    pub fn get_dep(&self, dep_name: &str) -> Option<Dep> {
         for dep_list in &self.lists {
             for dep in &dep_list.deps {
                 if dep_name == dep.name {
