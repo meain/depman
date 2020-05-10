@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 use crate::events::{StatefulList, TabsState};
 use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
@@ -8,7 +7,7 @@ use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Tex
 use std::process::Command;
 use tui::terminal::Frame;
 
-use crate::parser::{Dep, DepListList, DepVersion, DepVersionReq};
+use crate::parser::{Dep, DepListList};
 
 pub struct App {
     data: DepListList,
@@ -66,9 +65,6 @@ impl App {
         }
     }
 
-    pub fn show_popup(&mut self) {
-        self.popup_shown = true;
-    }
     pub fn hide_popup(&mut self) {
         self.popup_shown = false;
     }

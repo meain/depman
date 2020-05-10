@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{Result, Value};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::BufReader;
 use std::path::Path;
 
 #[derive(Debug, Clone)]
@@ -25,7 +24,7 @@ impl DepVersion {
                 let dvv = semver::Version::parse(&s);
                 match dvv {
                     Ok(dv) => DepVersion::Version(dv),
-                    Error => DepVersion::None,
+                    _ => DepVersion::None,
                 }
             }
             None => DepVersion::None,
@@ -51,7 +50,7 @@ impl DepVersionReq {
         let dvv = semver::VersionReq::parse(string);
         match dvv {
             Ok(dv) => DepVersionReq::Version(dv),
-            Error => DepVersionReq::None,
+            _ => DepVersionReq::None,
         }
     }
 }
