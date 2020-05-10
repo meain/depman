@@ -1,14 +1,16 @@
 #[allow(dead_code)]
 use crate::events::StatefulList;
-use tui::backend::{Backend};
+use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Style};
 use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Text};
 
 use tui::terminal::Frame;
 
-pub struct App<'a> {
-    items: StatefulList<&'a str>,
+use crate::parser::{DepListList, DepVersion, DepVersionReq};
+
+pub struct App {
+    items: StatefulList<String>,
     popup_shown: bool,
     style_uptodate: Style,
     style_patch: Style,
@@ -16,10 +18,10 @@ pub struct App<'a> {
     style_major: Style,
 }
 
-impl<'a> App<'a> {
-    pub fn new() -> App<'a> {
+impl App {
+    pub fn new(dep_names: Vec<String>) -> App {
         App {
-            items: StatefulList::with_items(vec!["termion", "caddy-lib", "futures"]),
+            items: StatefulList::with_items(dep_names),
             popup_shown: false,
             style_uptodate: Style::default().fg(Color::White),
             style_patch: Style::default().fg(Color::Yellow),
@@ -78,7 +80,7 @@ impl<'a> App<'a> {
     }
 
     pub fn render_dependency_list<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
-        let items = self.items.items.iter().map(|i| list_format(*i));
+        let items = self.items.items.iter().map(|i| list_format(&i));
         let block = List::new(items)
             .block(
                 Block::default()

@@ -1,16 +1,16 @@
 #[allow(dead_code)]
 mod parser;
-// mod events;
-// mod render;
+mod events;
+mod render;
 
-// use crate::events::event::{Event, Events};
-// use render::App;
-// use std::io;
-// use termion::event::Key;
-// use termion::raw::IntoRawMode;
-// use tui::backend::{Backend, TermionBackend};
-// use tui::layout::{Constraint, Direction, Layout};
-// use tui::Terminal;
+use crate::events::event::{Event, Events};
+use render::App;
+use std::io;
+use termion::event::Key;
+use termion::raw::IntoRawMode;
+use tui::backend::{Backend, TermionBackend};
+use tui::layout::{Constraint, Direction, Layout};
+use tui::Terminal;
 
 use futures::future::try_join_all;
 use humanesort::prelude::*;
@@ -41,6 +41,18 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
     for dep_list in &mut dep_list_list.lists {
         for dep in &mut dep_list.deps {
             if !results[counter].is_null() {
+                dep.author = match &results[counter]["author"] {
+                    Value::String(res) => res.to_string(),
+                    _ => "<unknown>".to_string()
+                };
+                dep.desciption = match &results[counter]["desciption"] {
+                    Value::String(res) => res.to_string(),
+                    _ => "<unknown>".to_string()
+                };
+                dep.license = match &results[counter]["libcore"] {
+                    Value::String(res) => res.to_string(),
+                    _ => "<unknown>".to_string()
+                };
                 if let Value::Object(versions) = &results[counter]["versions"] {
                     let mut key_list: Vec<String> = Vec::new();
                     for key in versions.keys() {
@@ -139,43 +151,43 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // println!("dep_list_list: {:?}", dep_list_list);
 
 
-    // let stdout = io::stdout().into_raw_mode()?;
-    // let mut backend = TermionBackend::new(stdout);
-    // let mut terminal = Terminal::new(backend)?;
-    // terminal.clear()?;
-    // terminal.hide_cursor()?;
-    //
-    // let events = Events::new();
-    // let mut app = App::new();
-    // app.next();
-    //
-    // // loop {
-    // terminal.draw(|mut f| {
-    //     let chunks = Layout::default()
-    //         .direction(Direction::Vertical)
-    //         .margin(1)
-    //         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-    //         .split(f.size());
-    //
-    //     app.render_dependency_list(&mut f, chunks[0]);
-    //     app.render_dependency_info(&mut f, chunks[1]);
-    //     app.render_version_selector(&mut f);
-    // })?;
-    // match events.next()? {
-    //     Event::Input(input) => match input {
-    //         Key::Char('q') => {
-    //             terminal.clear()?;
-    //             // break;
-    //         }
-    //         Key::Esc => app.hide_popup(),
-    //         Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
-    //         Key::Down | Key::Char('j') => app.next(),
-    //         Key::Up | Key::Char('k') => app.previous(),
-    //         _ => {}
-    //     },
-    //     _ => {}
+    let stdout = io::stdout().into_raw_mode()?;
+    let mut backend = TermionBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+    terminal.clear()?;
+    terminal.hide_cursor()?;
+
+    let events = Events::new();
+    let mut app = App::new(dep_list_list.get_dep_names());
+    app.next();
+
+    // loop {
+    terminal.draw(|mut f| {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .margin(1)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(f.size());
+
+        app.render_dependency_list(&mut f, chunks[0]);
+        app.render_dependency_info(&mut f, chunks[1]);
+        app.render_version_selector(&mut f);
+    })?;
+    match events.next()? {
+        Event::Input(input) => match input {
+            Key::Char('q') => {
+                terminal.clear()?;
+                // break;
+            }
+            Key::Esc => app.hide_popup(),
+            Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
+            Key::Down | Key::Char('j') => app.next(),
+            Key::Up | Key::Char('k') => app.previous(),
+            _ => {}
+        },
+        _ => {}
+    }
     // }
-    // // }
 
     Ok(())
 }

@@ -23,6 +23,9 @@ pub enum DepVersionReq {
 #[derive(Debug, Clone)]
 pub struct Dep {
     pub name: String,
+    pub author: String,
+    pub desciption: String,
+    pub license: String,
     pub specified_version: DepVersionReq, // from config files
     pub current_version: DepVersion,      // parsed from lockfiles
     pub available_versions: Option<Vec<DepVersion>>,
@@ -39,6 +42,29 @@ pub struct DepList {
 #[derive(Debug, Clone)]
 pub struct DepListList {
     pub lists: Vec<DepList>,
+}
+
+impl DepListList {
+    pub fn get_dep(self, dep_name: &str) -> Option<Dep> {
+        for dep_list in &self.lists {
+            for dep in &dep_list.deps {
+                if dep_name == dep.name {
+                    return Some(dep.clone());
+                }
+            }
+        }
+        None
+    }
+    pub fn get_dep_names(self) -> Vec<String> {
+        let mut deps = vec![];
+        for dep_list in &self.lists {
+            for dep in &dep_list.deps {
+                let name = dep.name.to_string();
+                deps.push(name);
+            }
+        }
+        deps
+    }
 }
 
 pub fn lines_from_file(filename: impl AsRef<Path>) -> Vec<String> {
@@ -88,6 +114,9 @@ pub fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepLis
                         };
                         let d = Dep {
                             name: key.to_string(),
+                            author: "<unknown>".to_string(),
+                            desciption: "<unknown>".to_string(),
+                            license: "<unknown>".to_string(),
                             specified_version: specified_version,
                             current_version: get_lockfile_version(&lockfile, &key),
                             available_versions: None,
@@ -99,6 +128,9 @@ pub fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepLis
                     _ => {
                         let d = Dep {
                             name: key.to_string(),
+                            author: "<unknown>".to_string(),
+                            desciption: "<unknown>".to_string(),
+                            license: "<unknown>".to_string(),
                             specified_version: DepVersionReq::Error,
                             current_version: get_lockfile_version(&lockfile, &key),
                             available_versions: None,
