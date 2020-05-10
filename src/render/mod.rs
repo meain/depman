@@ -14,6 +14,7 @@ pub struct App {
     data: DepListList,
     items: StatefulList<String>,
     popup_shown: bool,
+    help_menu_shown: bool,
     style_uptodate: Style,
     style_patch: Style,
     style_minor: Style,
@@ -27,6 +28,7 @@ impl App {
             data: dep_list_list,
             items: StatefulList::with_items(dep_names),
             popup_shown: false,
+            help_menu_shown: false,
             style_uptodate: Style::default().fg(Color::White),
             style_patch: Style::default().fg(Color::Yellow),
             style_minor: Style::default().fg(Color::Magenta),
@@ -55,12 +57,48 @@ impl App {
     pub fn toggle_popup(&mut self) {
         self.popup_shown = !self.popup_shown;
     }
+    pub fn toggle_help_menu(&mut self) {
+        self.help_menu_shown = !self.help_menu_shown;
+    }
 
     pub fn next(&mut self) {
         self.items.next()
     }
     pub fn previous(&mut self) {
         self.items.previous()
+    }
+    pub fn render_help_menu<B: Backend>(&mut self, f: &mut Frame<B>) {
+        if self.help_menu_shown {
+            let help_items = [
+                ["h/?", "show help menu"],
+                ["j/down", "move down"],
+                ["k/up", "move up"],
+                ["v/space", "show version list"],
+                ["o", "open homepage"],
+            ];
+            let mut text = vec![];
+            for item in help_items.iter() {
+                text.push(Text::styled(
+                    format!("{:<10}", item[0]),
+                    Style::default().fg(Color::Green),
+                ));
+                text.push(Text::raw(format!("{}\n", item[1])));
+            }
+            let block = Paragraph::new(text.iter())
+                .block(
+                    Block::default()
+                        .title("Help")
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(Color::White)),
+                )
+                .style(Style::default())
+                .alignment(Alignment::Left)
+                .wrap(true);
+            let area = centered_rect(50, 80, f.size());
+            f.render_widget(Clear, area); //this clears out the background
+            f.render_widget(block, area);
+        }
     }
     pub fn render_version_selector<B: Backend>(&mut self, f: &mut Frame<B>) {
         if self.popup_shown {

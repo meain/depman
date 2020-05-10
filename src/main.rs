@@ -190,6 +190,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             app.render_dependency_list(&mut f, chunks[0]);
             app.render_dependency_info(&mut f, chunks[1]);
             app.render_version_selector(&mut f);
+            app.render_help_menu(&mut f);
         })?;
         match events.next()? {
             Event::Input(input) => match input {
@@ -198,6 +199,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     break;
                 }
                 Key::Char('o') => app.open_homepage(),
+                Key::Char('h') | Key::Char('?') => app.toggle_help_menu(),
                 Key::Esc => app.hide_popup(),
                 Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
                 Key::Down | Key::Char('j') => app.next(),
