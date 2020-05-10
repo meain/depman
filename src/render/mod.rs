@@ -164,11 +164,11 @@ impl App {
                             .border_style(Style::default().fg(Color::Red)),
                     )
                     .style(Style::default())
-                    .highlight_style(Style::default().bg(Color::Red));
+                    .highlight_style(Style::default().bg(Color::White));
 
-                let area = centered_rect(50, 80, f.size());
+                let area = centered_rect(50, 50, f.size());
                 f.render_widget(Clear, area); //this clears out the background
-                f.render_widget(block, area);
+                f.render_stateful_widget(block, area, &mut self.versions.state);
             }
         }
     }
@@ -224,7 +224,7 @@ impl App {
     }
 
     pub fn render_dependency_list<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
-        let items = self.items.items.iter().map(|i| list_format(&i));
+        let items = self.items.items.iter().map(|i| Text::raw(i));
         let block = List::new(items)
             .block(
                 Block::default()
@@ -236,14 +236,6 @@ impl App {
             .style(Style::default())
             .highlight_style(Style::default().bg(Color::White));
         f.render_stateful_widget(block, chunk, &mut self.items.state);
-    }
-}
-
-pub fn list_format(i: &str) -> Text {
-    if i == "futures" {
-        Text::styled(i, Style::default().fg(Color::Green))
-    } else {
-        Text::raw(i)
     }
 }
 
