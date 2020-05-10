@@ -24,8 +24,8 @@ pub struct App {
 
 impl App {
     pub fn new(dep_list_list: DepListList) -> App {
-        let dep_names = dep_list_list.get_dep_names();
         let dep_kinds = dep_list_list.get_dep_kinds();
+        let dep_names = dep_list_list.get_dep_names_of_kind(&dep_kinds[0]);
         App {
             data: dep_list_list,
             items: StatefulList::with_items(dep_names),

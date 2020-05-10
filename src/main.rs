@@ -189,8 +189,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             let tabl = Layout::default()
                 .direction(Direction::Vertical)
-                .margin(5)
-                .constraints([Constraint::Length(3), Constraint::Min(5)].as_ref())
+                .constraints([Constraint::Length(2), Constraint::Min(0)].as_ref())
                 .split(chunks[0]);
 
             app.render_tabs(&mut f, tabl);
