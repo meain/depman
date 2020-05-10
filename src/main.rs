@@ -96,7 +96,6 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
     let mut gets = vec![];
     for dep_list in &dep_list_list.lists {
         for dep in &dep_list.deps {
-            // println!("dep: {:?}", dep.name);
             let get = fetch_resp(&dep.name);
             gets.push(get);
         }
@@ -145,58 +144,57 @@ fn printer(dep_list_list: &DepListList) {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let mut dep_list_list = DepListList::new("tests/node/npm");
-    // println!("dep_list_list: {:?}", dep_list_list);
     fetch_dep_infos(&mut dep_list_list).await?;
     printer(&dep_list_list);
 
-    // let stdout = io::stdout().into_raw_mode()?;
-    // let mut backend = TermionBackend::new(stdout);
-    // let mut terminal = Terminal::new(backend)?;
-    // terminal.clear()?;
-    // terminal.hide_cursor()?;
-    //
-    // let events = Events::new();
-    // let mut app = App::new(dep_list_list);
-    // app.next();
-    //
-    // loop {
-    //     terminal.draw(|mut f| {
-    //         let chunks = Layout::default()
-    //             .direction(Direction::Vertical)
-    //             .margin(1)
-    //             .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-    //             .split(f.size());
-    //
-    //         let tabl = Layout::default()
-    //             .direction(Direction::Vertical)
-    //             .constraints([Constraint::Length(2), Constraint::Min(0)].as_ref())
-    //             .split(chunks[0]);
-    //
-    //         app.render_tabs(&mut f, tabl);
-    //         // app.render_dependency_list(&mut f, chunks[0]);
-    //         app.render_dependency_info(&mut f, chunks[1]);
-    //         app.render_version_selector(&mut f);
-    //         app.render_help_menu(&mut f);
-    //     })?;
-    //     match events.next()? {
-    //         Event::Input(input) => match input {
-    //             Key::Char('q') => {
-    //                 terminal.clear()?;
-    //                 break;
-    //             }
-    //             Key::Char('o') => app.open_homepage(),
-    //             Key::Char('?') => app.toggle_help_menu(),  // h is for next tab
-    //             Key::Esc => app.hide_popup(),
-    //             Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
-    //             Key::Left | Key::Char('h') => app.tab_previous(),
-    //             Key::Right | Key::Char('l') => app.tab_next(),
-    //             Key::Down | Key::Char('j') => app.next(),
-    //             Key::Up | Key::Char('k') => app.previous(),
-    //             _ => {}
-    //         },
-    //         _ => {}
-    //     }
-    // }
+    let stdout = io::stdout().into_raw_mode()?;
+    let mut backend = TermionBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+    terminal.clear()?;
+    terminal.hide_cursor()?;
+
+    let events = Events::new();
+    let mut app = App::new(dep_list_list);
+    app.next();
+
+    loop {
+        terminal.draw(|mut f| {
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .margin(1)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+                .split(f.size());
+
+            let tabl = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(2), Constraint::Min(0)].as_ref())
+                .split(chunks[0]);
+
+            app.render_tabs(&mut f, tabl);
+            // app.render_dependency_list(&mut f, chunks[0]);
+            app.render_dependency_info(&mut f, chunks[1]);
+            app.render_version_selector(&mut f);
+            app.render_help_menu(&mut f);
+        })?;
+        match events.next()? {
+            Event::Input(input) => match input {
+                Key::Char('q') => {
+                    terminal.clear()?;
+                    break;
+                }
+                Key::Char('o') => app.open_homepage(),
+                Key::Char('?') => app.toggle_help_menu(),  // h is for next tab
+                Key::Esc => app.hide_popup(),
+                Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
+                Key::Left | Key::Char('h') => app.tab_previous(),
+                Key::Right | Key::Char('l') => app.tab_next(),
+                Key::Down | Key::Char('j') => app.next(),
+                Key::Up | Key::Char('k') => app.previous(),
+                _ => {}
+            },
+            _ => {}
+        }
+    }
 
     Ok(())
 }
