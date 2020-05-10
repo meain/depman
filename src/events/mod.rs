@@ -106,6 +106,22 @@ impl<T: std::clone::Clone> StatefulList<T> {
         }
     }
 
+    pub fn first(&mut self) {
+        if self.items.len() > 0 {
+            self.state.select(Some(0));
+        } else {
+            self.state.select(None);
+        }
+    }
+
+    pub fn last(&mut self) {
+        if self.items.len() > 0 {
+            self.state.select(Some(self.items.len() - 1));
+        } else {
+            self.state.select(None);
+        }
+    }
+
     pub fn next(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {

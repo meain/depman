@@ -95,6 +95,36 @@ impl App {
         self.items = StatefulList::with_items(dep_names);
         self.items.next();
     }
+
+    pub fn top(&mut self) {
+        if self.popup_shown {
+            self.versions.first();
+            self.versions.next()
+        } else {
+            self.items.first();
+            let mut dep_versions = vec![];
+            if let Some(dep) = self.get_current_dep() {
+                dep_versions = dep.get_version_strings();
+            }
+            self.versions = StatefulList::with_items(dep_versions);
+            self.versions.next();
+        }
+    }
+
+    pub fn bottom(&mut self) {
+        if self.popup_shown {
+            self.versions.last();
+        } else {
+            self.items.last();
+            let mut dep_versions = vec![];
+            if let Some(dep) = self.get_current_dep() {
+                dep_versions = dep.get_version_strings();
+            }
+            self.versions = StatefulList::with_items(dep_versions);
+            self.versions.next();
+        }
+    }
+
     pub fn next(&mut self) {
         if self.popup_shown {
             self.versions.next();
