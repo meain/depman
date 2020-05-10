@@ -55,13 +55,13 @@ impl Iterator for SinSignal {
     }
 }
 
-pub struct TabsState<'a> {
-    pub titles: Vec<&'a str>,
+pub struct TabsState {
+    pub titles: Vec<String>,
     pub index: usize,
 }
 
-impl<'a> TabsState<'a> {
-    pub fn new(titles: Vec<&'a str>) -> TabsState {
+impl TabsState {
+    pub fn new(titles: Vec<String>) -> TabsState {
         TabsState { titles, index: 0 }
     }
     pub fn next(&mut self) {
@@ -95,6 +95,14 @@ impl<T: std::clone::Clone> StatefulList<T> {
         StatefulList {
             state: ListState::default(),
             items: items,
+        }
+    }
+
+    pub fn reset(&mut self) {
+        if self.items.len() > 0 {
+            self.state.select(Some(0));
+        } else {
+            self.state.select(None);
         }
     }
 

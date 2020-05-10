@@ -62,13 +62,13 @@ impl Dep {
     pub fn get_latest_version(&self) -> String {
         match &self.latest_version {
             Some(v) => v.to_string(),
-            None => "<unknown>".to_string()
+            None => "<unknown>".to_string(),
         }
     }
     pub fn get_latest_semver_version(&self) -> String {
         match &self.latest_version {
             Some(v) => v.to_string(),
-            None => "<unknown>".to_string()
+            None => "<unknown>".to_string(),
         }
     }
 }
@@ -85,6 +85,15 @@ pub struct DepListList {
 }
 
 impl DepListList {
+    pub fn get_dep_kinds(&self) -> Vec<String> {
+        let mut kinds = vec![];
+        for dep_list in &self.lists {
+            let kind = dep_list.name.clone();
+            kinds.push(kind)
+        }
+        kinds
+    }
+
     pub fn get_dep(&mut self, dep_name: &str) -> Option<Dep> {
         for dep_list in &self.lists {
             for dep in &dep_list.deps {
@@ -98,6 +107,19 @@ impl DepListList {
     pub fn get_dep_names(&self) -> Vec<String> {
         let mut deps = vec![];
         for dep_list in &self.lists {
+            for dep in &dep_list.deps {
+                let name = dep.name.to_string();
+                deps.push(name);
+            }
+        }
+        deps
+    }
+    pub fn get_dep_names_of_kind(&self, kind: &str) -> Vec<String> {
+        let mut deps = vec![];
+        for dep_list in &self.lists {
+            if kind != &dep_list.name {
+                continue;
+            }
             for dep in &dep_list.deps {
                 let name = dep.name.to_string();
                 deps.push(name);

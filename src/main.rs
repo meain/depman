@@ -187,7 +187,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
                 .split(f.size());
 
-            app.render_dependency_list(&mut f, chunks[0]);
+            let tabl = Layout::default()
+                .direction(Direction::Vertical)
+                .margin(5)
+                .constraints([Constraint::Length(3), Constraint::Min(5)].as_ref())
+                .split(chunks[0]);
+
+            app.render_tabs(&mut f, tabl);
+            // app.render_dependency_list(&mut f, chunks[0]);
             app.render_dependency_info(&mut f, chunks[1]);
             app.render_version_selector(&mut f);
             app.render_help_menu(&mut f);
@@ -199,9 +206,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     break;
                 }
                 Key::Char('o') => app.open_homepage(),
-                Key::Char('h') | Key::Char('?') => app.toggle_help_menu(),
+                Key::Char('?') => app.toggle_help_menu(),  // h is for next tab
                 Key::Esc => app.hide_popup(),
                 Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
+                Key::Left | Key::Char('h') => app.tab_previous(),
+                Key::Right | Key::Char('l') => app.tab_next(),
                 Key::Down | Key::Char('j') => app.next(),
                 Key::Up | Key::Char('k') => app.previous(),
                 _ => {}

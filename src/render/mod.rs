@@ -1,9 +1,9 @@
 #[allow(dead_code)]
-use crate::events::StatefulList;
+use crate::events::{StatefulList, TabsState};
 use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Style};
-use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Text};
+use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Text};
 
 use std::process::Command;
 use tui::terminal::Frame;
@@ -13,6 +13,7 @@ use crate::parser::{DepListList, DepVersion, DepVersionReq};
 pub struct App {
     data: DepListList,
     items: StatefulList<String>,
+    tabs: TabsState,
     popup_shown: bool,
     help_menu_shown: bool,
     style_uptodate: Style,
@@ -24,9 +25,11 @@ pub struct App {
 impl App {
     pub fn new(dep_list_list: DepListList) -> App {
         let dep_names = dep_list_list.get_dep_names();
+        let dep_kinds = dep_list_list.get_dep_kinds();
         App {
             data: dep_list_list,
             items: StatefulList::with_items(dep_names),
+            tabs: TabsState::new(dep_kinds),
             popup_shown: false,
             help_menu_shown: false,
             style_uptodate: Style::default().fg(Color::White),
@@ -61,6 +64,20 @@ impl App {
         self.help_menu_shown = !self.help_menu_shown;
     }
 
+    pub fn tab_next(&mut self) {
+        self.tabs.next();
+        let dep_names = self
+            .data
+            .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
+        self.items = StatefulList::with_items(dep_names);
+    }
+    pub fn tab_previous(&mut self) {
+        self.tabs.previous();
+        let dep_names = self
+            .data
+            .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
+        self.items = StatefulList::with_items(dep_names);
+    }
     pub fn next(&mut self) {
         self.items.next()
     }
@@ -70,9 +87,11 @@ impl App {
     pub fn render_help_menu<B: Backend>(&mut self, f: &mut Frame<B>) {
         if self.help_menu_shown {
             let help_items = [
-                ["h/?", "show help menu"],
+                ["?", "show help menu"],
                 ["j/down", "move down"],
                 ["k/up", "move up"],
+                ["h/left", "prev tab"],
+                ["l/right", "next tab"],
                 ["v/space", "show version list"],
                 ["o", "open homepage"],
             ];
@@ -110,6 +129,19 @@ impl App {
             f.render_widget(block, area);
         }
     }
+
+    pub fn render_tabs<B: Backend>(&mut self, mut f: &mut Frame<B>, chunk: Vec<Rect>) {
+        let tabs = Tabs::default()
+            .block(Block::default())
+            .titles(&self.tabs.titles)
+            .select(self.tabs.index)
+            .style(Style::default().fg(Color::Cyan))
+            .highlight_style(Style::default().fg(Color::Yellow));
+        f.render_widget(tabs, chunk[0]);
+        self.render_dependency_list(&mut f, chunk[1]);
+        // f.render_widget(inner, chunk[1]);
+    }
+
     pub fn render_dependency_info<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
         let dep = self.data.get_dep(&self.items.get_item());
         if let Some(d) = dep {
