@@ -1,15 +1,16 @@
-mod utils;
-mod events;
-mod render;
+#[allow(dead_code)]
+mod parser;
+// mod events;
+// mod render;
 
-use crate::events::event::{Event, Events};
-use render::App;
-use std::io;
-use termion::event::Key;
-use termion::raw::IntoRawMode;
-use tui::backend::{Backend, TermionBackend};
-use tui::layout::{Constraint, Direction, Layout};
-use tui::Terminal;
+// use crate::events::event::{Event, Events};
+// use render::App;
+// use std::io;
+// use termion::event::Key;
+// use termion::raw::IntoRawMode;
+// use tui::backend::{Backend, TermionBackend};
+// use tui::layout::{Constraint, Direction, Layout};
+// use tui::Terminal;
 
 use futures::future::try_join_all;
 use humanesort::prelude::*;
@@ -18,55 +19,7 @@ use serde_json::Value;
 use std::error::Error;
 use tokio;
 
-#[derive(Debug, Clone)]
-enum DepVersion {
-    Error,
-    Version(semver::Version),
-    // might have to add stuff like guthub repo or file here
-}
-
-#[derive(Debug, Clone)]
-enum DepVersionReq {
-    Error,
-    Version(semver::VersionReq),
-    // might have to add stuff like guthub repo or file here
-}
-
-#[derive(Debug, Clone)]
-struct Dep {
-    name: String,
-    specified_version: DepVersionReq, // from config files
-    current_version: DepVersion,      // parsed from lockfiles
-    available_versions: Option<Vec<DepVersion>>,
-    latest_version: Option<DepVersion>,
-    latest_semver_version: Option<DepVersion>,
-}
-
-#[derive(Debug, Clone)]
-struct DepList {
-    name: String,
-    deps: Vec<Dep>, // Could be hashmap, but that might cause if someone lets multiple versions to exist
-}
-
-#[derive(Debug, Clone)]
-struct DepListList {
-    lists: Vec<DepList>,
-}
-
-fn get_lockfile_version(lockfile: &Value, name: &str) -> DepVersion {
-    if let Value::Object(deps) = &lockfile["dependencies"] {
-        if deps.contains_key(name) {
-            if let Value::Object(value) = &deps[name] {
-                if let Value::String(ver) = &value["version"] {
-                    if let Ok(sv) = semver::Version::parse(ver) {
-                        return DepVersion::Version(sv);
-                    }
-                }
-            }
-        }
-    }
-    DepVersion::Error
-}
+use parser::{Dep, DepList, DepListList, DepVersion, DepVersionReq};
 
 fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepList> {
     if !data[name].is_null() {
@@ -87,7 +40,7 @@ fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepList> {
                         let d = Dep {
                             name: key.to_string(),
                             specified_version: specified_version,
-                            current_version: get_lockfile_version(&lockfile, &key),
+                            current_version: parser::get_lockfile_version(&lockfile, &key),
                             available_versions: None,
                             latest_version: None,
                             latest_semver_version: None,
@@ -98,7 +51,7 @@ fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepList> {
                         let d = Dep {
                             name: key.to_string(),
                             specified_version: DepVersionReq::Error,
-                            current_version: get_lockfile_version(&lockfile, &key),
+                            current_version: parser::get_lockfile_version(&lockfile, &key),
                             available_versions: None,
                             latest_version: None,
                             latest_semver_version: None,
@@ -211,10 +164,10 @@ fn printer(dep_list_list: &DepListList) {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let mut dep_list_list = DepListList { lists: vec![] };
-    let config: Value = utils::get_parsed_json_file("package.json")?;
-    let lockfile: Value = utils::get_parsed_json_file("package-lock.json")?;
-    // let config: Value = utils::get_parsed_json_file("tests/node/npm/package.json")?;
-    // let lockfile: Value = utils::get_parsed_json_file("tests/node/npm/package-lock.json")?;
+    let config: Value = parser::get_parsed_json_file("package.json")?;
+    let lockfile: Value = parser::get_parsed_json_file("package-lock.json")?;
+    // let config: Value = parser::get_parsed_json_file("tests/node/npm/package.json")?;
+    // let lockfile: Value = parser::get_parsed_json_file("tests/node/npm/package-lock.json")?;
 
     let dl = get_dep_list(&config, "dependencies", &lockfile);
     if let Some(d) = dl {
@@ -231,43 +184,43 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // println!("dep_list_list: {:?}", dep_list_list);
 
 
-    let stdout = io::stdout().into_raw_mode()?;
-    let mut backend = TermionBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-    terminal.clear()?;
-    terminal.hide_cursor()?;
-
-    let events = Events::new();
-    let mut app = App::new();
-    app.next();
-
-    // loop {
-    terminal.draw(|mut f| {
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .margin(1)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-            .split(f.size());
-
-        app.render_dependency_list(&mut f, chunks[0]);
-        app.render_dependency_info(&mut f, chunks[1]);
-        app.render_version_selector(&mut f);
-    })?;
-    match events.next()? {
-        Event::Input(input) => match input {
-            Key::Char('q') => {
-                terminal.clear()?;
-                // break;
-            }
-            Key::Esc => app.hide_popup(),
-            Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
-            Key::Down | Key::Char('j') => app.next(),
-            Key::Up | Key::Char('k') => app.previous(),
-            _ => {}
-        },
-        _ => {}
-    }
+    // let stdout = io::stdout().into_raw_mode()?;
+    // let mut backend = TermionBackend::new(stdout);
+    // let mut terminal = Terminal::new(backend)?;
+    // terminal.clear()?;
+    // terminal.hide_cursor()?;
+    //
+    // let events = Events::new();
+    // let mut app = App::new();
+    // app.next();
+    //
+    // // loop {
+    // terminal.draw(|mut f| {
+    //     let chunks = Layout::default()
+    //         .direction(Direction::Vertical)
+    //         .margin(1)
+    //         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+    //         .split(f.size());
+    //
+    //     app.render_dependency_list(&mut f, chunks[0]);
+    //     app.render_dependency_info(&mut f, chunks[1]);
+    //     app.render_version_selector(&mut f);
+    // })?;
+    // match events.next()? {
+    //     Event::Input(input) => match input {
+    //         Key::Char('q') => {
+    //             terminal.clear()?;
+    //             // break;
+    //         }
+    //         Key::Esc => app.hide_popup(),
+    //         Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
+    //         Key::Down | Key::Char('j') => app.next(),
+    //         Key::Up | Key::Char('k') => app.previous(),
+    //         _ => {}
+    //     },
+    //     _ => {}
     // }
+    // // }
 
     Ok(())
 }

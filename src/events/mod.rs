@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 pub mod event;
 
 use rand::distributions::{Distribution, Uniform};

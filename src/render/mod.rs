@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 use crate::events::StatefulList;
 use tui::backend::{Backend};
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
