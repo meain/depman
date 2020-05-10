@@ -5,6 +5,7 @@ use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Style};
 use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Text};
 
+use std::process::Command;
 use tui::terminal::Frame;
 
 use crate::parser::{DepListList, DepVersion, DepVersionReq};
@@ -30,6 +31,18 @@ impl App {
             style_patch: Style::default().fg(Color::Yellow),
             style_minor: Style::default().fg(Color::Magenta),
             style_major: Style::default().fg(Color::Red),
+        }
+    }
+
+    pub fn open_homepage(&mut self) {
+        let dep = self.data.get_dep(&self.items.get_item());
+        if let Some(d) = dep {
+            let homepage = d.homepage;
+
+            Command::new("open")
+                .arg(homepage)
+                .output()
+                .expect("Failed to execute command");
         }
     }
 

@@ -197,6 +197,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     terminal.clear()?;
                     break;
                 }
+                Key::Char('o') => app.open_homepage(),
                 Key::Esc => app.hide_popup(),
                 Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
                 Key::Down | Key::Char('j') => app.next(),
