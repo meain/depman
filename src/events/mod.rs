@@ -110,7 +110,7 @@ impl<T: std::clone::Clone> StatefulList<T> {
         let i = match self.state.selected() {
             Some(i) => {
                 if i >= self.items.len() - 1 {
-                    0
+                    i
                 } else {
                     i + 1
                 }
@@ -124,7 +124,7 @@ impl<T: std::clone::Clone> StatefulList<T> {
         let i = match self.state.selected() {
             Some(i) => {
                 if i == 0 {
-                    self.items.len() - 1
+                    0
                 } else {
                     i - 1
                 }
