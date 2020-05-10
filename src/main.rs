@@ -42,10 +42,28 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
         for dep in &mut dep_list.deps {
             if !results[counter].is_null() {
                 dep.author = match &results[counter]["author"] {
-                    Value::String(res) => res.to_string(),
+                    Value::Object(res) => {
+                        let mut name_string = "";
+                        let mut email_string = "";
+                        match &res["name"] {
+                            Value::String(name) => name_string = name,
+                            _ => name_string = "<unknown>"
+                        };
+                        // TODO: Fix error when fetching email
+                        // match &res["email"] {
+                        //     Value::String(email) => email_string =  email,
+                        //     _ => email_string = "<unknown>"
+                        // };
+                        // format!("{} <{}>", name_string, email_string)
+                        name_string.to_string()
+                    },
                     _ => "<unknown>".to_string()
                 };
                 dep.description = match &results[counter]["description"] {
+                    Value::String(res) => res.to_string(),
+                    _ => "<unknown>".to_string()
+                };
+                dep.homepage = match &results[counter]["homepage"] {
                     Value::String(res) => res.to_string(),
                     _ => "<unknown>".to_string()
                 };

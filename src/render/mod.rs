@@ -73,12 +73,14 @@ impl App {
                 Text::raw(format!(" {}\n", &d.get_latest_semver_version())),
                 Text::styled("Latest Version", Style::default().fg(Color::Blue)),
                 Text::raw(format!(" {}\n", &d.get_latest_version())),
-                Text::styled("License", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", &d.license.to_string())),
-                Text::styled("Description", Style::default().fg(Color::Magenta)),
-                Text::raw(format!(" {}\n", &d.description.to_string())),
                 Text::styled("Author", Style::default().fg(Color::Green)),
-                Text::raw(" Abin Simon<mail@meain.io>\n"),
+                Text::raw(format!(" {}\n", &d.author.to_string())),
+                Text::styled("Homepage", Style::default().fg(Color::Magenta)),
+                Text::raw(format!(" {}\n", &d.homepage.to_string())),
+                Text::styled("License", Style::default().fg(Color::Yellow)),
+                Text::raw(format!(" {}\n", &d.license.to_string())),
+                Text::styled("Description", Style::default().fg(Color::Cyan)),
+                Text::raw(format!(" {}\n", &d.description.to_string())),
             ];
             let block = Paragraph::new(text.iter())
                 .block(

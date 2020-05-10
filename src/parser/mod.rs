@@ -43,6 +43,7 @@ pub struct Dep {
     pub name: String,
     pub author: String,
     pub description: String,
+    pub homepage: String,
     pub license: String,
     pub specified_version: DepVersionReq, // from config files
     pub current_version: DepVersion,      // parsed from lockfiles
@@ -155,6 +156,7 @@ pub fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepLis
                             name: key.to_string(),
                             author: "<unknown>".to_string(),
                             description: "<unknown>".to_string(),
+                            homepage: "<unknown>".to_string(),
                             license: "<unknown>".to_string(),
                             specified_version: specified_version,
                             current_version: get_lockfile_version(&lockfile, &key),
@@ -169,6 +171,7 @@ pub fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepLis
                             name: key.to_string(),
                             author: "<unknown>".to_string(),
                             description: "<unknown>".to_string(),
+                            homepage: "<unknown>".to_string(),
                             license: "<unknown>".to_string(),
                             specified_version: DepVersionReq::Error,
                             current_version: get_lockfile_version(&lockfile, &key),
