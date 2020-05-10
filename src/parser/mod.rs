@@ -69,3 +69,48 @@ pub fn get_lockfile_version(lockfile: &Value, name: &str) -> DepVersion {
     }
     DepVersion::Error
 }
+
+pub fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepList> {
+    if !data[name].is_null() {
+        let mut dep_list = DepList {
+            name: name.to_string(),
+            deps: vec![],
+        };
+
+        let deps = &data[name];
+        if let Value::Object(dl) = deps {
+            for (key, value) in dl {
+                match value {
+                    Value::String(v) => {
+                        let specified_version = match semver::VersionReq::parse(v) {
+                            Ok(ver) => DepVersionReq::Version(ver),
+                            Err(_) => DepVersionReq::Error,
+                        };
+                        let d = Dep {
+                            name: key.to_string(),
+                            specified_version: specified_version,
+                            current_version: get_lockfile_version(&lockfile, &key),
+                            available_versions: None,
+                            latest_version: None,
+                            latest_semver_version: None,
+                        };
+                        dep_list.deps.push(d);
+                    }
+                    _ => {
+                        let d = Dep {
+                            name: key.to_string(),
+                            specified_version: DepVersionReq::Error,
+                            current_version: get_lockfile_version(&lockfile, &key),
+                            available_versions: None,
+                            latest_version: None,
+                            latest_semver_version: None,
+                        };
+                        dep_list.deps.push(d);
+                    }
+                }
+            }
+        }
+        return Some(dep_list);
+    }
+    None
+}
