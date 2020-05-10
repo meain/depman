@@ -280,11 +280,8 @@ impl App {
                         .border_style(Style::default().fg(Color::White)),
                 )
                 .style(Style::default())
-                .highlight_style(
-                    Style::default()
-                        .fg(get_version_color(dc_upgrade_type))
-                        .modifier(Modifier::UNDERLINED),
-                );
+                .highlight_style(Style::default().fg(get_version_color(dc_upgrade_type)))
+                .highlight_symbol("■ ");  // ║ ▓ ■
             f.render_stateful_widget(block, chunk, &mut self.items.state);
         }
     }
