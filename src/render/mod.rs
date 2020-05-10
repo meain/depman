@@ -1,7 +1,7 @@
 use crate::events::{StatefulList, TabsState};
 use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Style, Modifier};
+use tui::style::{Color, Modifier, Style};
 use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Text};
 
 use std::process::Command;
@@ -259,7 +259,12 @@ impl App {
                     Some(d) => {
                         let upgrade_type = d.get_ugrade_type();
                         items.push(Text::styled(
-                            d.name,
+                            format!(
+                                "{} ({} > {})",
+                                d.name,
+                                d.current_version.to_string(),
+                                d.get_latest_semver_version()
+                            ),
                             Style::default().fg(get_version_color(upgrade_type)),
                         ));
                     }
@@ -275,7 +280,11 @@ impl App {
                         .border_style(Style::default().fg(Color::White)),
                 )
                 .style(Style::default())
-                .highlight_style(Style::default().fg(get_version_color(dc_upgrade_type)).modifier(Modifier::UNDERLINED));
+                .highlight_style(
+                    Style::default()
+                        .fg(get_version_color(dc_upgrade_type))
+                        .modifier(Modifier::UNDERLINED),
+                );
             f.render_stateful_widget(block, chunk, &mut self.items.state);
         }
     }
