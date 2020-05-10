@@ -45,11 +45,11 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
                     Value::String(res) => res.to_string(),
                     _ => "<unknown>".to_string()
                 };
-                dep.desciption = match &results[counter]["desciption"] {
+                dep.description = match &results[counter]["description"] {
                     Value::String(res) => res.to_string(),
                     _ => "<unknown>".to_string()
                 };
-                dep.license = match &results[counter]["libcore"] {
+                dep.license = match &results[counter]["license"] {
                     Value::String(res) => res.to_string(),
                     _ => "<unknown>".to_string()
                 };
@@ -131,10 +131,10 @@ fn printer(dep_list_list: &DepListList) {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let mut dep_list_list = DepListList { lists: vec![] };
-    let config: Value = parser::get_parsed_json_file("package.json")?;
-    let lockfile: Value = parser::get_parsed_json_file("package-lock.json")?;
-    // let config: Value = parser::get_parsed_json_file("tests/node/npm/package.json")?;
-    // let lockfile: Value = parser::get_parsed_json_file("tests/node/npm/package-lock.json")?;
+    // let config: Value = parser::get_parsed_json_file("package.json")?;
+    // let lockfile: Value = parser::get_parsed_json_file("package-lock.json")?;
+    let config: Value = parser::get_parsed_json_file("tests/node/npm/package.json")?;
+    let lockfile: Value = parser::get_parsed_json_file("tests/node/npm/package-lock.json")?;
 
     let dl = parser::get_dep_list(&config, "dependencies", &lockfile);
     if let Some(d) = dl {
@@ -158,36 +158,36 @@ async fn main() -> Result<(), Box<dyn Error>> {
     terminal.hide_cursor()?;
 
     let events = Events::new();
-    let mut app = App::new(dep_list_list.get_dep_names());
+    let mut app = App::new(dep_list_list);
     app.next();
 
-    // loop {
-    terminal.draw(|mut f| {
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .margin(1)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-            .split(f.size());
+    loop {
+        terminal.draw(|mut f| {
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .margin(1)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+                .split(f.size());
 
-        app.render_dependency_list(&mut f, chunks[0]);
-        app.render_dependency_info(&mut f, chunks[1]);
-        app.render_version_selector(&mut f);
-    })?;
-    match events.next()? {
-        Event::Input(input) => match input {
-            Key::Char('q') => {
-                terminal.clear()?;
-                // break;
-            }
-            Key::Esc => app.hide_popup(),
-            Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
-            Key::Down | Key::Char('j') => app.next(),
-            Key::Up | Key::Char('k') => app.previous(),
+            app.render_dependency_list(&mut f, chunks[0]);
+            app.render_dependency_info(&mut f, chunks[1]);
+            app.render_version_selector(&mut f);
+        })?;
+        match events.next()? {
+            Event::Input(input) => match input {
+                Key::Char('q') => {
+                    terminal.clear()?;
+                    break;
+                }
+                Key::Esc => app.hide_popup(),
+                Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
+                Key::Down | Key::Char('j') => app.next(),
+                Key::Up | Key::Char('k') => app.previous(),
+                _ => {}
+            },
             _ => {}
-        },
-        _ => {}
+        }
     }
-    // }
 
     Ok(())
 }

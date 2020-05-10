@@ -13,6 +13,15 @@ pub enum DepVersion {
     // might have to add stuff like guthub repo or file here
 }
 
+impl DepVersion {
+    pub fn to_string(&self) -> String {
+        match self {
+            DepVersion::Error => "<error>".to_string(),
+            DepVersion::Version(v) => v.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum DepVersionReq {
     Error,
@@ -20,17 +29,47 @@ pub enum DepVersionReq {
     // might have to add stuff like guthub repo or file here
 }
 
+impl DepVersionReq {
+    pub fn to_string(&self) -> String {
+        match self {
+            DepVersionReq::Error => "<error>".to_string(),
+            DepVersionReq::Version(v) => v.to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Dep {
     pub name: String,
     pub author: String,
-    pub desciption: String,
+    pub description: String,
     pub license: String,
     pub specified_version: DepVersionReq, // from config files
     pub current_version: DepVersion,      // parsed from lockfiles
     pub available_versions: Option<Vec<DepVersion>>,
     pub latest_version: Option<DepVersion>,
     pub latest_semver_version: Option<DepVersion>,
+}
+
+impl Dep {
+    pub fn get_specified_version(&self) -> String {
+        self.specified_version.to_string()
+    }
+    pub fn get_current_version(&self) -> String {
+        self.specified_version.to_string()
+    }
+    pub fn get_latest_version(&self) -> String {
+        match &self.latest_version {
+            Some(v) => v.to_string(),
+            None => "<unknown>".to_string()
+        }
+    }
+    pub fn get_latest_semver_version(&self) -> String {
+        match &self.latest_version {
+            Some(v) => v.to_string(),
+            None => "<unknown>".to_string()
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -45,7 +84,7 @@ pub struct DepListList {
 }
 
 impl DepListList {
-    pub fn get_dep(self, dep_name: &str) -> Option<Dep> {
+    pub fn get_dep(&mut self, dep_name: &str) -> Option<Dep> {
         for dep_list in &self.lists {
             for dep in &dep_list.deps {
                 if dep_name == dep.name {
@@ -55,7 +94,7 @@ impl DepListList {
         }
         None
     }
-    pub fn get_dep_names(self) -> Vec<String> {
+    pub fn get_dep_names(&self) -> Vec<String> {
         let mut deps = vec![];
         for dep_list in &self.lists {
             for dep in &dep_list.deps {
@@ -115,7 +154,7 @@ pub fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepLis
                         let d = Dep {
                             name: key.to_string(),
                             author: "<unknown>".to_string(),
-                            desciption: "<unknown>".to_string(),
+                            description: "<unknown>".to_string(),
                             license: "<unknown>".to_string(),
                             specified_version: specified_version,
                             current_version: get_lockfile_version(&lockfile, &key),
@@ -129,7 +168,7 @@ pub fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepLis
                         let d = Dep {
                             name: key.to_string(),
                             author: "<unknown>".to_string(),
-                            desciption: "<unknown>".to_string(),
+                            description: "<unknown>".to_string(),
                             license: "<unknown>".to_string(),
                             specified_version: DepVersionReq::Error,
                             current_version: get_lockfile_version(&lockfile, &key),

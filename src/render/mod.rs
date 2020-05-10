@@ -10,6 +10,7 @@ use tui::terminal::Frame;
 use crate::parser::{DepListList, DepVersion, DepVersionReq};
 
 pub struct App {
+    data: DepListList,
     items: StatefulList<String>,
     popup_shown: bool,
     style_uptodate: Style,
@@ -19,8 +20,10 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(dep_names: Vec<String>) -> App {
+    pub fn new(dep_list_list: DepListList) -> App {
+        let dep_names = dep_list_list.get_dep_names();
         App {
+            data: dep_list_list,
             items: StatefulList::with_items(dep_names),
             popup_shown: false,
             style_uptodate: Style::default().fg(Color::White),
@@ -57,26 +60,39 @@ impl App {
         }
     }
     pub fn render_dependency_info<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
-        let text = [
-            Text::styled("Name", Style::default().fg(Color::Red)),
-            Text::raw(format!(" {}\n", self.items.get_item())),
-            Text::styled("Version", Style::default().fg(Color::Blue)),
-            Text::raw(" 1.0.3\n"),
-            Text::styled("Author", Style::default().fg(Color::Green)),
-            Text::raw(" Abin Simon<mail@meain.io>\n"),
-        ];
-        let block = Paragraph::new(text.iter())
-            .block(
-                Block::default()
-                    .title("Info")
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-                    .border_style(Style::default().fg(Color::White)),
-            )
-            .style(Style::default())
-            .alignment(Alignment::Left)
-            .wrap(true);
-        f.render_widget(block, chunk);
+        let dep = self.data.get_dep(&self.items.get_item());
+        if let Some(d) = dep {
+            let text = [
+                Text::styled("Name", Style::default().fg(Color::Red)),
+                Text::raw(format!(" {}\n", d.name)),
+                Text::styled("Specified Version", Style::default().fg(Color::Blue)),
+                Text::raw(format!(" {}\n", &d.get_specified_version())),
+                Text::styled("Current Version", Style::default().fg(Color::Blue)),
+                Text::raw(format!(" {}\n", &d.get_current_version())),
+                Text::styled("Upgradeable Version", Style::default().fg(Color::Blue)),
+                Text::raw(format!(" {}\n", &d.get_latest_semver_version())),
+                Text::styled("Latest Version", Style::default().fg(Color::Blue)),
+                Text::raw(format!(" {}\n", &d.get_latest_version())),
+                Text::styled("License", Style::default().fg(Color::Blue)),
+                Text::raw(format!(" {}\n", &d.license.to_string())),
+                Text::styled("Description", Style::default().fg(Color::Magenta)),
+                Text::raw(format!(" {}\n", &d.description.to_string())),
+                Text::styled("Author", Style::default().fg(Color::Green)),
+                Text::raw(" Abin Simon<mail@meain.io>\n"),
+            ];
+            let block = Paragraph::new(text.iter())
+                .block(
+                    Block::default()
+                        .title("Info")
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(Color::White)),
+                )
+                .style(Style::default())
+                .alignment(Alignment::Left)
+                .wrap(true);
+            f.render_widget(block, chunk);
+        }
     }
 
     pub fn render_dependency_list<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
