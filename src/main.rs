@@ -22,6 +22,7 @@ use tokio;
 use parser::{DepListList, DepVersion, DepVersionReq};
 
 async fn fetch_resp(dep: &str) -> Result<Value, Box<dyn Error>> {
+    // let url = format!("https://registry.npmjs.org/{}", dep);
     let url = format!("http://localhost:8000/{}.json", dep);
     let resp = reqwest::get(&url).await?.json().await?;
     Ok(resp)
