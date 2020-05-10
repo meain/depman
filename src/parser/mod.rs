@@ -1,39 +1,57 @@
-#[allow(dead_code)]
+use serde::{Deserialize, Serialize};
 use serde_json::{Result, Value};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-// use std::error::Error;
-
 #[derive(Debug, Clone)]
 pub enum DepVersion {
-    Error,
     Version(semver::Version),
-    // might have to add stuff like guthub repo or file here
+    None,
 }
 
 impl DepVersion {
     pub fn to_string(&self) -> String {
         match self {
-            DepVersion::Error => "<error>".to_string(),
+            DepVersion::None => "<unknown>".to_string(),
             DepVersion::Version(v) => v.to_string(),
+        }
+    }
+
+    pub fn from(string: Option<String>) -> Self {
+        match string {
+            Some(s) => {
+                let dvv = semver::Version::parse(&s);
+                match dvv {
+                    Ok(dv) => DepVersion::Version(dv),
+                    Error => DepVersion::None,
+                }
+            }
+            None => DepVersion::None,
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum DepVersionReq {
-    Error,
-    Version(semver::VersionReq),
     // might have to add stuff like guthub repo or file here
+    Version(semver::VersionReq),
+    None,
 }
 
 impl DepVersionReq {
     pub fn to_string(&self) -> String {
         match self {
-            DepVersionReq::Error => "<error>".to_string(),
+            DepVersionReq::None => "<unknown>".to_string(),
             DepVersionReq::Version(v) => v.to_string(),
+        }
+    }
+    pub fn from(string: &str) -> Self {
+        let dvv = semver::VersionReq::parse(string);
+        match dvv {
+            Ok(dv) => DepVersionReq::Version(dv),
+            Error => DepVersionReq::None,
         }
     }
 }
@@ -41,10 +59,10 @@ impl DepVersionReq {
 #[derive(Debug, Clone)]
 pub struct Dep {
     pub name: String,
-    pub author: String,
-    pub description: String,
-    pub homepage: String,
-    pub license: String,
+    pub author: Option<String>,
+    pub description: Option<String>,
+    pub homepage: Option<String>,
+    pub license: Option<String>,
     pub specified_version: DepVersionReq, // from config files
     pub current_version: DepVersion,      // parsed from lockfiles
     pub available_versions: Option<Vec<DepVersion>>,
@@ -53,6 +71,34 @@ pub struct Dep {
 }
 
 impl Dep {
+    pub fn get_name(&self) -> String {
+        self.name.to_string()
+    }
+    pub fn get_author(&self) -> String {
+        match &self.author {
+            Some(value) => value.to_string(),
+            None => "<unknown>".to_string(),
+        }
+    }
+    pub fn get_description(&self) -> String {
+        match &self.description {
+            Some(value) => value.to_string(),
+            None => "<unknown>".to_string(),
+        }
+    }
+    pub fn get_homepage(&self) -> String {
+        match &self.homepage {
+            Some(value) => value.to_string(),
+            None => "<unknown>".to_string(),
+        }
+    }
+    pub fn get_license(&self) -> String {
+        match &self.license {
+            Some(value) => value.to_string(),
+            None => "<unknown>".to_string(),
+        }
+    }
+
     pub fn get_version_strings(&self) -> Vec<String> {
         let mut version_strings = vec![];
         if let Some(av) = &self.available_versions {
@@ -66,7 +112,7 @@ impl Dep {
         self.specified_version.to_string()
     }
     pub fn get_current_version(&self) -> String {
-        self.specified_version.to_string()
+        self.current_version.to_string()
     }
     pub fn get_latest_version(&self) -> String {
         match &self.latest_version {
@@ -138,84 +184,121 @@ impl DepListList {
     }
 }
 
-pub fn lines_from_file(filename: impl AsRef<Path>) -> Vec<String> {
-    let file = File::open(filename).expect("Unable to open file");
-    let buf = BufReader::new(file);
-    buf.lines()
-        .map(|l| l.expect("Could not parse line"))
-        .collect()
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct JavascriptPackageJson {
+    name: String,
+    dependencies: Option<HashMap<String, String>>,
+    devDependencies: Option<HashMap<String, String>>,
 }
 
-pub fn get_parsed_json_file(filename: &str) -> Result<Value> {
-    let lines = lines_from_file(filename);
-    let config: Value = serde_json::from_str(&lines.join("\n"))?;
-    Ok(config)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct DepWithVersion {
+    version: String,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct JavascriptPackageJsonLockfile {
+    name: String,
+    dependencies: Option<HashMap<String, DepWithVersion>>,
 }
 
-pub fn get_lockfile_version(lockfile: &Value, name: &str) -> DepVersion {
-    if let Value::Object(deps) = &lockfile["dependencies"] {
-        if deps.contains_key(name) {
-            if let Value::Object(value) = &deps[name] {
-                if let Value::String(ver) = &value["version"] {
-                    if let Ok(sv) = semver::Version::parse(ver) {
-                        return DepVersion::Version(sv);
+impl JavascriptPackageJsonLockfile {
+    fn from(folder: &str) -> JavascriptPackageJsonLockfile {
+        let path_string = format!("{}/package-lock.json", folder);
+        println!("path_string: {:?}", path_string);
+        let path = Path::new(&path_string);
+        let file_maybe = File::open(path);
+        match file_maybe {
+            Ok(file) => {
+                let reader = BufReader::new(file);
+                let p = serde_json::from_reader(reader);
+                match p {
+                    Ok(package_json) => {
+                        return package_json;
                     }
+                    _ => panic!("Cannot parse package-lock.json"),
                 }
             }
+            _ => panic!("Cannot read package.json"),
         }
     }
-    DepVersion::Error
+    pub fn get_lockfile_version(&self, name: &str) -> Option<String> {
+        match &self.dependencies {
+            Some(deps) => Some(deps[name].version.clone()),
+            None => None,
+        }
+    }
 }
 
-pub fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepList> {
-    if !data[name].is_null() {
-        let mut dep_list = DepList {
-            name: name.to_string(),
-            deps: vec![],
-        };
-
-        let deps = &data[name];
-        if let Value::Object(dl) = deps {
-            for (key, value) in dl {
-                match value {
-                    Value::String(v) => {
-                        let specified_version = match semver::VersionReq::parse(v) {
-                            Ok(ver) => DepVersionReq::Version(ver),
-                            Err(_) => DepVersionReq::Error,
-                        };
-                        let d = Dep {
-                            name: key.to_string(),
-                            author: "<unknown>".to_string(),
-                            description: "<unknown>".to_string(),
-                            homepage: "<unknown>".to_string(),
-                            license: "<unknown>".to_string(),
-                            specified_version: specified_version,
-                            current_version: get_lockfile_version(&lockfile, &key),
-                            available_versions: None,
-                            latest_version: None,
-                            latest_semver_version: None,
-                        };
-                        dep_list.deps.push(d);
+impl JavascriptPackageJson {
+    fn from(folder: &str) -> JavascriptPackageJson {
+        let path_string = format!("{}/package.json", folder);
+        let path = Path::new(&path_string);
+        let file_maybe = File::open(path);
+        match file_maybe {
+            Ok(file) => {
+                let reader = BufReader::new(file);
+                let p = serde_json::from_reader(reader);
+                match p {
+                    Ok(package_json) => {
+                        return package_json;
                     }
-                    _ => {
-                        let d = Dep {
-                            name: key.to_string(),
-                            author: "<unknown>".to_string(),
-                            description: "<unknown>".to_string(),
-                            homepage: "<unknown>".to_string(),
-                            license: "<unknown>".to_string(),
-                            specified_version: DepVersionReq::Error,
-                            current_version: get_lockfile_version(&lockfile, &key),
-                            available_versions: None,
-                            latest_version: None,
-                            latest_semver_version: None,
-                        };
-                        dep_list.deps.push(d);
-                    }
+                    _ => panic!("Cannot read package.json"),
                 }
             }
+            _ => panic!("Cannot read package.json"),
         }
-        return Some(dep_list);
     }
-    None
+}
+
+impl DepListList {
+    pub fn new(folder: &str) -> DepListList {
+        let config = JavascriptPackageJson::from(folder);
+        let lockfile = JavascriptPackageJsonLockfile::from(folder);
+        let mut items = vec![];
+        if let Some(deps) = config.dependencies {
+            let mut dep_list = vec![];
+            for dep in deps.keys() {
+                let dep_item = Dep {
+                    name: dep.to_string(),
+                    author: None,
+                    description: None,
+                    homepage: None,
+                    license: None,
+                    specified_version: DepVersionReq::from(&deps[dep]), // from config files
+                    current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
+                    available_versions: None,
+                    latest_version: None,
+                    latest_semver_version: None,
+                };
+                dep_list.push(dep_item);
+            }
+            items.push(DepList {
+                name: "dependencies".to_string(),
+                deps: dep_list,
+            })
+        }
+        if let Some(deps) = config.devDependencies {
+            let mut dep_list = vec![];
+            for dep in deps.keys() {
+                let dep_item = Dep {
+                    name: dep.to_string(),
+                    author: None,
+                    description: None,
+                    homepage: None,
+                    license: None,
+                    specified_version: DepVersionReq::from(&deps[dep]), // from config files
+                    current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
+                    available_versions: None,
+                    latest_version: None,
+                    latest_semver_version: None,
+                };
+                dep_list.push(dep_item);
+            }
+            items.push(DepList {
+                name: "devDependencies".to_string(),
+                deps: dep_list,
+            })
+        }
+        DepListList { lists: items }
+    }
 }
