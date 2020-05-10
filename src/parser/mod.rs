@@ -277,6 +277,28 @@ impl DepListList {
                 deps: dep_list,
             })
         }
+        if let Some(deps) = config.devDependencies {
+            let mut dep_list = vec![];
+            for dep in deps.keys() {
+                let dep_item = Dep {
+                    name: dep.to_string(),
+                    author: None,
+                    description: None,
+                    homepage: None,
+                    license: None,
+                    specified_version: DepVersionReq::from(&deps[dep]), // from config files
+                    current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
+                    available_versions: None,
+                    latest_version: None,
+                    latest_semver_version: None,
+                };
+                dep_list.push(dep_item);
+            }
+            items.push(DepList {
+                name: "devDependencies".to_string(),
+                deps: dep_list,
+            })
+        }
         DepListList { lists: items }
     }
 }

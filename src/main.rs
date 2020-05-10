@@ -96,6 +96,7 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
     let mut gets = vec![];
     for dep_list in &dep_list_list.lists {
         for dep in &dep_list.deps {
+            // println!("dep: {:?}", dep.name);
             let get = fetch_resp(&dep.name);
             gets.push(get);
         }
@@ -144,9 +145,9 @@ fn printer(dep_list_list: &DepListList) {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let mut dep_list_list = DepListList::new("tests/node/npm");
+    // println!("dep_list_list: {:?}", dep_list_list);
     fetch_dep_infos(&mut dep_list_list).await?;
     printer(&dep_list_list);
-    println!("dep_list_list: {:?}", dep_list_list);
 
     // let stdout = io::stdout().into_raw_mode()?;
     // let mut backend = TermionBackend::new(stdout);
