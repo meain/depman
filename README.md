@@ -1,4 +1,4 @@
-<p align="center">If the code is a mess and you know it, clap your hands.</p>
+<p align="center">If code is messy and you know it, clap your hands.</p>
 
 <p align="center">
 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏 👏
