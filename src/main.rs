@@ -132,7 +132,7 @@ fn printer(dep_list_list: &DepListList) {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let mut dep_list_list = DepListList::new("tests/node/npm");
+    let mut dep_list_list = DepListList::new("tests/node/npm", "javascript-package-json");
     fetch_dep_infos(&mut dep_list_list).await?;
     printer(&dep_list_list);
 
