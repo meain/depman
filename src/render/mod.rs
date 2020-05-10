@@ -54,10 +54,15 @@ impl App {
         if let Some(d) = dep {
             let homepage = d.homepage;
 
-            Command::new("open")
-                .arg(homepage)
-                .output()
-                .expect("Failed to execute command");
+            match homepage {
+                Some(hp) => {
+                    Command::new("open")
+                        .arg(hp)
+                        .output()
+                        .expect("Failed to execute command");
+                }
+                None => {}
+            }
         }
     }
 
@@ -200,13 +205,13 @@ impl App {
                 Text::styled("Latest Version", Style::default().fg(Color::Blue)),
                 Text::raw(format!(" {}\n", &d.get_latest_version())),
                 Text::styled("Author", Style::default().fg(Color::Green)),
-                Text::raw(format!(" {}\n", &d.author.to_string())),
+                Text::raw(format!(" {}\n", &d.get_author())),
                 Text::styled("Homepage", Style::default().fg(Color::Magenta)),
-                Text::raw(format!(" {}\n", &d.homepage.to_string())),
+                Text::raw(format!(" {}\n", &d.get_homepage())),
                 Text::styled("License", Style::default().fg(Color::Yellow)),
-                Text::raw(format!(" {}\n", &d.license.to_string())),
+                Text::raw(format!(" {}\n", &d.get_license())),
                 Text::styled("Description", Style::default().fg(Color::Cyan)),
-                Text::raw(format!(" {}\n", &d.description.to_string())),
+                Text::raw(format!(" {}\n", &d.get_description())),
             ];
             let block = Paragraph::new(text.iter())
                 .block(
