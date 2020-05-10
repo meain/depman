@@ -80,6 +80,7 @@ impl App {
             .data
             .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
         self.items = StatefulList::with_items(dep_names);
+        self.items.next();
     }
     pub fn tab_previous(&mut self) {
         self.tabs.previous();
@@ -87,6 +88,7 @@ impl App {
             .data
             .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
         self.items = StatefulList::with_items(dep_names);
+        self.items.next();
     }
     pub fn next(&mut self) {
         if self.popup_shown {
@@ -98,7 +100,7 @@ impl App {
                 dep_versions = dep.get_version_strings();
             }
             self.versions = StatefulList::with_items(dep_versions);
-            self.versions.reset();
+            self.versions.next();
         }
     }
     pub fn previous(&mut self) {
@@ -111,7 +113,7 @@ impl App {
                 dep_versions = dep.get_version_strings();
             }
             self.versions = StatefulList::with_items(dep_versions);
-            self.versions.reset();
+            self.versions.next();
         }
     }
     pub fn render_help_menu<B: Backend>(&mut self, f: &mut Frame<B>) {
@@ -159,10 +161,10 @@ impl App {
                             .title("Versions")
                             .borders(Borders::ALL)
                             .border_type(BorderType::Rounded)
-                            .border_style(Style::default().fg(Color::White)),
+                            .border_style(Style::default().fg(Color::Red)),
                     )
                     .style(Style::default())
-                    .highlight_style(Style::default().bg(Color::White));
+                    .highlight_style(Style::default().bg(Color::Red));
 
                 let area = centered_rect(50, 80, f.size());
                 f.render_widget(Clear, area); //this clears out the background
