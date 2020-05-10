@@ -236,9 +236,9 @@ impl DepListList {
 }
 
 impl DepListList {
-    pub fn new(folder: &str, kind: &str) -> DepListList {
+    pub async fn new(folder: &str, kind: &str) -> DepListList {
         match kind {
-            "javascript-package-json" => jspackagejson::into(folder),
+            "javascript-package-json" => jspackagejson::into(folder).await,
             _ => unreachable!(),
         }
     }

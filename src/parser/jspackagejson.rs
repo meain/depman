@@ -2,9 +2,12 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+use std::error::Error;
+use humanesort::prelude::*;
+use futures::future::try_join_all;
 
 use serde::{Deserialize, Serialize};
-use crate::parser::{Dep, DepList, DepVersion, DepVersionReq, DepListList};
+use crate::parser::{Author, Dep, DepList, DepVersion, DepVersionReq, DepListList};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JavascriptPackageJson {
@@ -72,7 +75,94 @@ impl JavascriptPackageJson {
     }
 }
 
-pub fn into(folder: &str) -> DepListList {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct MockVersionRight {
+    version: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NpmResponse {
+    name: String,
+    author: Option<Author>,
+    description: Option<String>,
+    license: Option<String>,
+    homepage: Option<String>,
+    versions: HashMap<String, MockVersionRight>, // TODO: remove this Value from here
+}
+
+impl NpmResponse {
+    pub fn get_versions_list(&self) -> Vec<DepVersion> {
+        let mut versions = vec![];
+        for key in self.versions.keys() {
+            versions.push(DepVersion::from(Some(key.clone())))
+        }
+        versions
+    }
+
+    pub fn inject_inportant_versions(&self, dep: &mut Dep) {
+        let mut key_list: Vec<String> = Vec::new();
+        for key in self.versions.keys() {
+            key_list.push(key.to_string());
+        }
+        key_list.humane_sort();
+
+        let mut parsed_versions: Vec<DepVersion> = Vec::new();
+        let mut latest_semantic_version: Option<DepVersion> = None;
+        let mut latest_version: Option<DepVersion> = None;
+        for key in key_list {
+            if let Ok(valid_version) = semver::Version::parse(&key) {
+                parsed_versions.push(DepVersion::Version(valid_version.clone()));
+                latest_version = Some(DepVersion::Version(valid_version.clone()));
+                if let DepVersionReq::Version(spec) = &dep.specified_version {
+                    if spec.matches(&valid_version) {
+                        latest_semantic_version = Some(DepVersion::Version(valid_version.clone()));
+                    }
+                }
+            };
+        }
+        dep.available_versions = Some(parsed_versions);
+        dep.latest_version = latest_version;
+        dep.latest_semver_version = latest_semantic_version;
+    }
+}
+
+
+async fn fetch_resp(dep: &str) -> Result<NpmResponse, Box<dyn Error>> {
+    // let url = format!("https://registry.npmjs.org/{}", dep);
+    let url = format!("http://localhost:8000/{}.json", dep);
+    let resp = reqwest::get(&url).await?.json().await?;
+    Ok(resp)
+}
+
+async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn Error + 'static>> {
+    let mut gets = vec![];
+    for dep_list in &dep_list_list.lists {
+        for dep in &dep_list.deps {
+            let get = fetch_resp(&dep.name);
+            gets.push(get);
+        }
+    }
+    let results = try_join_all(gets).await?;
+
+    for dep_list in &mut dep_list_list.lists {
+        for mut dep in &mut dep_list.deps {
+            for result in &results {
+                if &result.name == &dep.name {
+                    dep.description = result.description.clone();
+                    dep.available_versions = Some(result.get_versions_list());
+                    dep.license = result.license.clone();
+                    dep.homepage = result.homepage.clone();
+                    dep.author = result.author.clone();
+                    result.inject_inportant_versions(&mut dep);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn into(folder: &str) -> DepListList {
     let config = JavascriptPackageJson::from(folder);
     let lockfile = JavascriptPackageJsonLockfile::from(folder);
     let mut items = vec![];
@@ -120,5 +210,8 @@ pub fn into(folder: &str) -> DepListList {
             deps: dep_list,
         })
     }
-    DepListList { lists: items }
+
+    let mut dep_list_list = DepListList { lists: items };
+    fetch_dep_infos(&mut dep_list_list).await;  // Error does not matter, there is nothing I can do
+    dep_list_list
 }
