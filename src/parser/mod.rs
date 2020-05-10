@@ -4,19 +4,16 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-// use std::error::Error;
-
 #[derive(Debug, Clone)]
 pub enum DepVersion {
-    Error,
     Version(semver::Version),
-    // might have to add stuff like guthub repo or file here
+    None,
 }
 
 impl DepVersion {
     pub fn to_string(&self) -> String {
         match self {
-            DepVersion::Error => "<error>".to_string(),
+            DepVersion::None => "<unknown>".to_string(),
             DepVersion::Version(v) => v.to_string(),
         }
     }
@@ -24,15 +21,15 @@ impl DepVersion {
 
 #[derive(Debug, Clone)]
 pub enum DepVersionReq {
-    Error,
-    Version(semver::VersionReq),
     // might have to add stuff like guthub repo or file here
+    Version(semver::VersionReq),
+    None,
 }
 
 impl DepVersionReq {
     pub fn to_string(&self) -> String {
         match self {
-            DepVersionReq::Error => "<error>".to_string(),
+            DepVersionReq::None => "<unknown>".to_string(),
             DepVersionReq::Version(v) => v.to_string(),
         }
     }
@@ -164,7 +161,7 @@ pub fn get_lockfile_version(lockfile: &Value, name: &str) -> DepVersion {
             }
         }
     }
-    DepVersion::Error
+    DepVersion::None
 }
 
 pub fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepList> {
@@ -181,7 +178,7 @@ pub fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepLis
                     Value::String(v) => {
                         let specified_version = match semver::VersionReq::parse(v) {
                             Ok(ver) => DepVersionReq::Version(ver),
-                            Err(_) => DepVersionReq::Error,
+                            Err(_) => DepVersionReq::None,
                         };
                         let d = Dep {
                             name: key.to_string(),
@@ -204,7 +201,7 @@ pub fn get_dep_list(data: &Value, name: &str, lockfile: &Value) -> Option<DepLis
                             description: "<unknown>".to_string(),
                             homepage: "<unknown>".to_string(),
                             license: "<unknown>".to_string(),
-                            specified_version: DepVersionReq::Error,
+                            specified_version: DepVersionReq::None,
                             current_version: get_lockfile_version(&lockfile, &key),
                             available_versions: None,
                             latest_version: None,

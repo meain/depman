@@ -45,7 +45,7 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
                 dep.author = match &results[counter]["author"] {
                     Value::Object(res) => {
                         let mut name_string = "";
-                        let mut email_string = "";
+                        // let mut email_string = "";
                         match &res["name"] {
                             Value::String(name) => name_string = name,
                             _ => name_string = "<unknown>"
@@ -112,26 +112,14 @@ fn printer(dep_list_list: &DepListList) {
         let kind = dep_list.name.to_string();
         for dep in &dep_list.deps {
             let name = dep.name.to_string();
-            let specified_version = match &dep.specified_version {
-                DepVersionReq::Error => "invalid".to_string(),
-                DepVersionReq::Version(v) => v.to_string(),
-            };
-            let current_version = match &dep.current_version {
-                DepVersion::Error => "invalid".to_string(),
-                DepVersion::Version(v) => v.to_string(),
-            };
+            let specified_version = &dep.specified_version.to_string();
+            let current_version = &dep.current_version.to_string();
             let latest_version = match &dep.latest_version {
-                Some(version) => match version {
-                    DepVersion::Version(ver) => ver.to_string(),
-                    DepVersion::Error => "error".to_string(),
-                },
+                Some(version) => version.to_string(),
                 None => "unknown".to_string(),
             };
             let latest_semver_version = match &dep.latest_semver_version {
-                Some(version) => match version {
-                    DepVersion::Version(ver) => ver.to_string(),
-                    DepVersion::Error => "error".to_string(),
-                },
+                Some(version) => version.to_string(),
                 None => "unknown".to_string(),
             };
             println!(
