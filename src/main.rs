@@ -42,7 +42,8 @@ fn printer(dep_list_list: &DepListList) {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let dep_list_list = DepListList::new("tests/node/npm", "javascript-package-json").await;
+    // let dep_list_list = DepListList::new("tests/node/npm", "javascript-package-json").await;
+    let dep_list_list = DepListList::new("tests/cargo", "rust-cargo-toml").await;
     printer(&dep_list_list);
 
     if true {

@@ -1,4 +1,5 @@
 mod jspackagejson;
+mod rustcargotoml;
 
 use serde::{Deserialize, Serialize};
 
@@ -239,6 +240,7 @@ impl DepListList {
     pub async fn new(folder: &str, kind: &str) -> DepListList {
         match kind {
             "javascript-package-json" => jspackagejson::into(folder).await,
+            "rust-cargo-toml" => rustcargotoml::into(folder).await,
             _ => unreachable!(),
         }
     }
