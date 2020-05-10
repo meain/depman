@@ -63,7 +63,7 @@ impl Dep {
         self.specified_version.to_string()
     }
     pub fn get_current_version(&self) -> String {
-        self.specified_version.to_string()
+        self.current_version.to_string()
     }
     pub fn get_latest_version(&self) -> String {
         match &self.latest_version {

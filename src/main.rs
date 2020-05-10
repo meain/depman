@@ -112,16 +112,10 @@ fn printer(dep_list_list: &DepListList) {
         let kind = dep_list.name.to_string();
         for dep in &dep_list.deps {
             let name = dep.name.to_string();
-            let specified_version = &dep.specified_version.to_string();
-            let current_version = &dep.current_version.to_string();
-            let latest_version = match &dep.latest_version {
-                Some(version) => version.to_string(),
-                None => "unknown".to_string(),
-            };
-            let latest_semver_version = match &dep.latest_semver_version {
-                Some(version) => version.to_string(),
-                None => "unknown".to_string(),
-            };
+            let specified_version = &dep.get_specified_version();
+            let current_version = &dep.get_current_version();
+            let latest_version = &dep.get_latest_version();
+            let latest_semver_version = &dep.get_latest_semver_version();
             println!(
                 "{}: [{}] {}({}) => {}({})",
                 kind,
