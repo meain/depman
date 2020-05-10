@@ -56,10 +56,32 @@ impl DepVersionReq {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Author {
+    name: String,
+    url: Option<String>,
+    email: Option<String>,
+}
+
+impl Author {
+    pub fn to_string(&self) -> String {
+        let mut author_string = self.name.to_string();
+        match &self.email {
+            Some(v) => author_string = format!("{} <{}>", author_string, &v.to_string()),
+            None => {}
+        }
+        match &self.url {
+            Some(v) => author_string = format!("{} [{}]", author_string, &v.to_string()),
+            None => {}
+        }
+        author_string
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Dep {
     pub name: String,
-    pub author: Option<String>,
+    pub author: Option<Author>,
     pub description: Option<String>,
     pub homepage: Option<String>,
     pub license: Option<String>,

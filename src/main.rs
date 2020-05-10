@@ -19,21 +19,10 @@ use serde_json::Value;
 use std::error::Error;
 use tokio;
 
-use parser::{Dep, DepListList, DepVersion, DepVersionReq};
+use parser::{Author, Dep, DepListList, DepVersion, DepVersionReq};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct Author {
-    name: String,
-    url: Option<String>,
-}
-
-impl Author {
-    pub fn to_string(&self) -> String {
-        self.name.to_string()
-    }
-}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct MockVersionRight {
     version: String,
@@ -110,6 +99,7 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
                     dep.available_versions = Some(result.get_versions_list());
                     dep.license = result.license.clone();
                     dep.homepage = result.homepage.clone();
+                    dep.author = result.author.clone();
                     result.inject_inportant_versions(&mut dep);
                 }
             }
@@ -183,7 +173,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     break;
                 }
                 Key::Char('o') => app.open_homepage(),
-                Key::Char('?') => app.toggle_help_menu(),  // h is for next tab
+                Key::Char('?') => app.toggle_help_menu(), // h is for next tab
                 Key::Esc => app.hide_popup(),
                 Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
                 Key::Left | Key::Char('h') => app.tab_previous(),
