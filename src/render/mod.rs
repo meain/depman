@@ -1,7 +1,7 @@
 use crate::events::{StatefulList, TabsState};
 use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use tui::style::{Color, Style};
+use tui::style::{Color, Style, Modifier};
 use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Text};
 
 use std::process::Command;
@@ -175,22 +175,26 @@ impl App {
         }
     }
     pub fn render_version_selector<B: Backend>(&mut self, f: &mut Frame<B>) {
-        if self.popup_shown {
-            let items = self.versions.items.iter().map(|i| Text::raw(i));
-            let block = List::new(items)
-                .block(
-                    Block::default()
-                        .title("Versions")
-                        .borders(Borders::ALL)
-                        .border_type(BorderType::Rounded)
-                        .border_style(Style::default().fg(Color::Red)),
-                )
-                .style(Style::default())
-                .highlight_style(Style::default().bg(Color::White));
+        if let Some(d) = self.get_current_dep() {
+            // TODO
+            let upgrade_type = d.get_ugrade_type();
+            if self.popup_shown {
+                let items = self.versions.items.iter().map(|i| Text::raw(i));
+                let block = List::new(items)
+                    .block(
+                        Block::default()
+                            .title("Versions")
+                            .borders(Borders::ALL)
+                            .border_type(BorderType::Rounded)
+                            .border_style(Style::default().fg(Color::Red)),
+                    )
+                    .style(Style::default())
+                    .highlight_style(Style::default().bg(Color::White));
 
-            let area = centered_rect(50, 50, f.size());
-            f.render_widget(Clear, area); //this clears out the background
-            f.render_stateful_widget(block, area, &mut self.versions.state);
+                let area = centered_rect(50, 50, f.size());
+                f.render_widget(Clear, area); //this clears out the background
+                f.render_stateful_widget(block, area, &mut self.versions.state);
+            }
         }
     }
 
@@ -246,37 +250,43 @@ impl App {
 
     pub fn render_dependency_list<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
         // let items = self.items.items.iter().map(|i| Text::raw(i));
-        let mut items = vec![];
-        for item in self.items.items.iter() {
-            let dep = self.data.get_dep(item);
-            match dep {
-                Some(d) => {
-                    let upgrage_type = d.get_ugrade_type();
-                    items.push(Text::styled(d.name, get_version_style(upgrage_type)));
+        if let Some(dc) = self.get_current_dep() {
+            let dc_upgrade_type = dc.get_ugrade_type();
+            let mut items = vec![];
+            for item in self.items.items.iter() {
+                let dep = self.data.get_dep(item);
+                match dep {
+                    Some(d) => {
+                        let upgrade_type = d.get_ugrade_type();
+                        items.push(Text::styled(
+                            d.name,
+                            Style::default().fg(get_version_color(upgrade_type)),
+                        ));
+                    }
+                    None => unreachable!(),
                 }
-                None => unreachable!(),
             }
+            let block = List::new(items.into_iter())
+                .block(
+                    Block::default()
+                        .title("Dependencies")
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(Color::White)),
+                )
+                .style(Style::default())
+                .highlight_style(Style::default().fg(get_version_color(dc_upgrade_type)).modifier(Modifier::UNDERLINED));
+            f.render_stateful_widget(block, chunk, &mut self.items.state);
         }
-        let block = List::new(items.into_iter())
-            .block(
-                Block::default()
-                    .title("Dependencies")
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-                    .border_style(Style::default().fg(Color::White)),
-            )
-            .style(Style::default())
-            .highlight_style(Style::default().bg(Color::White));
-        f.render_stateful_widget(block, chunk, &mut self.items.state);
     }
 }
 
-fn get_version_style(upgrage_type: UpgradeType) -> Style {
+fn get_version_color(upgrage_type: UpgradeType) -> Color {
     match upgrage_type {
-        UpgradeType::None => Style::default().fg(Color::White),
-        UpgradeType::Major => Style::default().fg(Color::Red),
-        UpgradeType::Minor => Style::default().fg(Color::Magenta),
-        UpgradeType::Patch => Style::default().fg(Color::Green),
+        UpgradeType::None => Color::White,
+        UpgradeType::Major => Color::Red,
+        UpgradeType::Minor => Color::Magenta,
+        UpgradeType::Patch => Color::Green,
     }
 }
 
