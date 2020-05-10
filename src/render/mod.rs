@@ -146,7 +146,7 @@ impl App {
                 .style(Style::default())
                 .alignment(Alignment::Left)
                 .wrap(true);
-            let area = centered_rect(50, 80, f.size());
+            let area = centered_rect(50, 50, f.size());
             f.render_widget(Clear, area); //this clears out the background
             f.render_widget(block, area);
         }
