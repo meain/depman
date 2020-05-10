@@ -1,4 +1,15 @@
 mod utils;
+mod events;
+mod render;
+
+use crate::events::event::{Event, Events};
+use render::App;
+use std::io;
+use termion::event::Key;
+use termion::raw::IntoRawMode;
+use tui::backend::{Backend, TermionBackend};
+use tui::layout::{Constraint, Direction, Layout};
+use tui::Terminal;
 
 use futures::future::try_join_all;
 use humanesort::prelude::*;
@@ -198,12 +209,12 @@ fn printer(dep_list_list: &DepListList) {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn Error>> {
     let mut dep_list_list = DepListList { lists: vec![] };
-    // let config: Value = utils::get_parsed_json_file("package.json")?;
-    // let lockfile: Value = utils::get_parsed_json_file("package-lock.json")?;
-    let config: Value = utils::get_parsed_json_file("tests/node/npm/package.json")?;
-    let lockfile: Value = utils::get_parsed_json_file("tests/node/npm/package-lock.json")?;
+    let config: Value = utils::get_parsed_json_file("package.json")?;
+    let lockfile: Value = utils::get_parsed_json_file("package-lock.json")?;
+    // let config: Value = utils::get_parsed_json_file("tests/node/npm/package.json")?;
+    // let lockfile: Value = utils::get_parsed_json_file("tests/node/npm/package-lock.json")?;
 
     let dl = get_dep_list(&config, "dependencies", &lockfile);
     if let Some(d) = dl {
@@ -218,6 +229,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     fetch_dep_infos(&mut dep_list_list).await?;
     printer(&dep_list_list);
     // println!("dep_list_list: {:?}", dep_list_list);
+
+
+    let stdout = io::stdout().into_raw_mode()?;
+    let mut backend = TermionBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+    terminal.clear()?;
+    terminal.hide_cursor()?;
+
+    let events = Events::new();
+    let mut app = App::new();
+    app.next();
+
+    // loop {
+    terminal.draw(|mut f| {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .margin(1)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+            .split(f.size());
+
+        app.render_dependency_list(&mut f, chunks[0]);
+        app.render_dependency_info(&mut f, chunks[1]);
+        app.render_version_selector(&mut f);
+    })?;
+    match events.next()? {
+        Event::Input(input) => match input {
+            Key::Char('q') => {
+                terminal.clear()?;
+                // break;
+            }
+            Key::Esc => app.hide_popup(),
+            Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
+            Key::Down | Key::Char('j') => app.next(),
+            Key::Up | Key::Char('k') => app.previous(),
+            _ => {}
+        },
+        _ => {}
+    }
+    // }
 
     Ok(())
 }

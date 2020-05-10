@@ -18,6 +18,6 @@
   "license": "MIT",
   "dependencies": {
     "commander": "^5.0.0",
-    "puppeteer": "^3.0.0"
+    "puppeteer": "^2.0.0"
   }
 }
