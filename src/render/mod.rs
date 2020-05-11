@@ -13,6 +13,7 @@ pub struct App {
     data: DepListList,
     items: StatefulList<String>,
     versions: StatefulList<String>,
+    help_content_pos: u16,
     tabs: TabsState,
     popup_shown: bool,
     help_menu_shown: bool,
@@ -30,6 +31,7 @@ impl App {
             data: dep_list_list,
             items: StatefulList::with_items(dep_names),
             versions: StatefulList::with_items(dep_versions),
+            help_content_pos: 0,
             tabs: TabsState::new(dep_kinds),
             popup_shown: false,
             help_menu_shown: false,
@@ -125,6 +127,8 @@ impl App {
     pub fn next(&mut self) {
         if self.popup_shown {
             self.versions.next();
+        } else if self.help_menu_shown {
+            self.help_content_pos += 1;
         } else {
             self.items.next();
             let mut dep_versions = vec![];
@@ -138,6 +142,10 @@ impl App {
     pub fn previous(&mut self) {
         if self.popup_shown {
             self.versions.previous();
+        } else if self.help_menu_shown {
+            if self.help_content_pos > 0 {
+                self.help_content_pos -= 1;
+            }
         } else {
             self.items.previous();
             let mut dep_versions = vec![];
@@ -195,6 +203,7 @@ impl App {
                 )
                 .style(Style::default())
                 .alignment(Alignment::Left)
+                .scroll(self.help_content_pos)
                 .wrap(true);
             let area = centered_rect(50, 50, f.size());
             f.render_widget(Clear, area); //this clears out the background
