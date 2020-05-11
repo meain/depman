@@ -3,6 +3,10 @@ name = "depman"
 version = "0.1.0"
 authors = ["Abin Simon <abinsimon10@gmail.com>"]
 edition = "2018"
+description ="TUI to manage your dependencies"
+license ="Apache-2.0"
+homepage = "https://github.com/meain/depman"
+repository = "https://github.com/meain/depman"
 
 [dependencies]
 regex = "1"
