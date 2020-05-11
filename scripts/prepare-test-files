@@ -1,12 +1,20 @@
 #!/bin/sh
 
 echo "react
-react-dom
+@babel/core
+@babel/plugin-syntax-dynamic-import
+@babel/preset-env
+@babel/preset-flow
+abort-controller
+axios
 babel-core
 babel-eslint
 babel-plugin-transform-object-rest-spread
+babel-plugin-transform-react-jsx
 babel-preset-flow
 babel-preset-react
+color-hash
+core-js
 cssnano
 eslint
 eslint-config-airbnb
@@ -16,36 +24,70 @@ eslint-plugin-flowtype
 eslint-plugin-import
 eslint-plugin-jsx-a11y
 eslint-plugin-react
+event-source-polyfill
 flow-bin
+http-server
+immer
+jest
+js-cookie
+jwt-decode
 parcel-bundler
+parcel-plugin-bundle-visualiser
+react-completor
+react-dom
+react-loadable
+react-loading
+react-redux
+react-responsive-modal
+react-select
+react-table
+react-testing-library
+recharts
+redux
+sweetalert
+tableau-api
+whatwg-fetch
 stylelint-config-standard" |
     while read -r package; do
         filename="testfiles/npm/$package.json"
+        mkdir -p "$(dirname "$filename")"
         [ ! -f "$filename" ] && echo "npm - $package" && curl -L# "https://registry.npmjs.org/$package" >"$filename"
     done
 
 echo "clap
-version_check
-time
 ansi_term
-libc
-term_grid
-terminal_size
-time
-chrono-humanize
-unicode-width
-lscolors
-wild
-globset
-xdg
-yaml-rust
-users
-winapi
 assert_cmd
 assert_fs
+chrono-humanize
+futures
+globset
+humanesort
+libc
+lscolors
 predicates
+rand
+regex
+reqwest
+semver
+serde
+serde_json
+term_grid
+terminal_size
+termion
+time
+tokio
+toml
+tui
+unicode-width
+users
+version_check
+wild
+winapi
+xdg
+yaml-rust
 tempfile" |
     while read -r package; do
         filename="testfiles/cargo/$package.json"
+        mkdir -p "$(dirname "$filename")"
         [ ! -f "$filename" ] && echo "cargo - $package" && curl -L# "https://crates.io/api/v1/crates/$package" >"$filename"
     done
