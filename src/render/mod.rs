@@ -59,12 +59,21 @@ impl App {
 
     pub fn hide_popup(&mut self) {
         self.popup_shown = false;
+        self.help_menu_shown = false;
     }
     pub fn toggle_popup(&mut self) {
-        self.popup_shown = !self.popup_shown;
+        if self.popup_shown {
+            self.popup_shown = false
+        } else if !self.help_menu_shown {
+            self.popup_shown = true
+        }
     }
     pub fn toggle_help_menu(&mut self) {
-        self.help_menu_shown = !self.help_menu_shown;
+        if self.help_menu_shown {
+            self.help_menu_shown = false
+        } else if !self.popup_shown {
+            self.help_menu_shown = true
+        }
     }
 
     pub fn tab_next(&mut self) {
@@ -165,7 +174,7 @@ impl App {
                 text.push(Text::raw(format!("{}\n", item[1])));
             }
             text.push(Text::styled(
-                "\n\nColors\n",
+                "\nColors\n",
                 Style::default()
                     .fg(Color::Cyan)
                     .modifier(Modifier::UNDERLINED),
