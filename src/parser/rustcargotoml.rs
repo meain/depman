@@ -165,7 +165,7 @@ impl CargoResponse {
 
 async fn fetch_resp(dep: &str) -> Result<CargoResponse, Box<dyn Error>> {
     let url = format!("https://crates.io/api/v1/crates/{}", dep);
-    let url = format!("http://localhost:8000/cargo/{}.json", dep);
+    // let url = format!("http://localhost:8000/cargo/{}.json", dep);
     let resp = reqwest::Client::new().get(&url)
         .header("User-Agent", "depman (github.com/meain/depman)").send().await?.json().await?;
     Ok(resp)
