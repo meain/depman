@@ -59,7 +59,6 @@ pub struct LockFile {
 impl LockFile {
     fn from(folder: &str) -> LockFile {
         let path_string = format!("{}/Cargo.lock", folder);
-        println!("path_string: {:?}", path_string);
         let path = Path::new(&path_string);
         let text_maybe = std::fs::read_to_string(path_string);
         match text_maybe {
@@ -88,7 +87,6 @@ impl LockFile {
 impl ConfigFile {
     fn from(folder: &str) -> ConfigFile {
         let path_string = format!("{}/Cargo.toml", folder);
-        println!("path_string: {:?}", path_string);
         let path = Path::new(&path_string);
         let text_maybe = std::fs::read_to_string(path_string);
         match text_maybe {
@@ -225,7 +223,6 @@ pub async fn into(folder: &str) -> DepListList {
     if let Some(deps) = config.dependencies {
         let mut dep_list = vec![];
         for dep in deps.keys() {
-            // println!("{:?}: {:?}", dep, deps[dep]);
             let dep_item = Dep {
                 name: dep.to_string(),
                 author: None,

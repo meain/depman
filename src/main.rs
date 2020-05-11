@@ -43,7 +43,6 @@ fn printer(dep_list_list: &DepListList) {
 }
 
 fn find_type(folder: &str) -> &str {
-    println!("{}",format!("{}/package-lock.json", folder));
     if Path::new(&format!("{}/package-lock.json", folder)).exists() {
         return "javascript-npm";
     } else if Path::new(&format!("{}/Cargo.lock", folder)).exists() {
@@ -60,10 +59,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         false => "."
     };
     let kind = find_type(&folder);
-    // let dep_list_list = DepListList::new("tests/js/npm", "javascript-npm").await;
-    // let dep_list_list = DepListList::new("tests/rust/cargo", "rust-cargo").await;
     let dep_list_list = DepListList::new(folder, kind).await;
-    printer(&dep_list_list);
+    // printer(&dep_list_list);
 
     if true {
         let stdout = io::stdout().into_raw_mode()?;

@@ -29,7 +29,6 @@ pub struct JavascriptPackageJsonLockfile {
 impl JavascriptPackageJsonLockfile {
     fn from(folder: &str) -> JavascriptPackageJsonLockfile {
         let path_string = format!("{}/package-lock.json", folder);
-        println!("path_string: {:?}", path_string);
         let path = Path::new(&path_string);
         let file_maybe = File::open(path);
         match file_maybe {
