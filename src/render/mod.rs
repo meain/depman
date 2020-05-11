@@ -59,6 +59,16 @@ impl App {
         }
     }
 
+    pub fn open_package_repo(&mut self) {
+        let dep = self.data.get_dep(&self.items.get_item());
+        if let Some(de) = dep {
+            Command::new("open")
+                .arg(de.get_package_repo())
+                .output()
+                .expect("Failed to execute command");
+        }
+    }
+
     pub fn hide_popup(&mut self) {
         self.popup_shown = false;
         self.help_menu_shown = false;
@@ -166,6 +176,7 @@ impl App {
                 ["l/right", "next tab"],
                 ["v/space", "show version list"],
                 ["o", "open homepage"],
+                ["p", "open package repo"],
             ];
             let mut text = vec![];
             text.push(Text::styled(
@@ -300,6 +311,8 @@ impl App {
                 Text::raw(format!(" {}\n", &d.get_author())),
                 Text::styled("Homepage", Style::default().fg(Color::Magenta)),
                 Text::raw(format!(" {}\n", &d.get_homepage())),
+                Text::styled("Package repo:", Style::default().fg(Color::Magenta)),
+                Text::raw(format!(" {}\n", &d.get_package_repo())),
                 Text::styled("License", Style::default().fg(Color::Yellow)),
                 Text::raw(format!(" {}\n", &d.get_license())),
                 Text::styled("Description", Style::default().fg(Color::Cyan)),

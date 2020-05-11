@@ -1,3 +1,4 @@
+use std::env;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
@@ -162,8 +163,11 @@ impl CargoResponse {
 
 
 async fn fetch_resp(dep: &str) -> Result<CargoResponse, Box<dyn Error>> {
-    let url = format!("https://crates.io/api/v1/crates/{}", dep);
-    // let url = format!("http://localhost:8000/cargo/{}.json", dep);
+    let mut url = format!("https://crates.io/api/v1/crates/{}", dep);
+    match env::var("MEAIN_TEST_ENV") {
+        Ok(_) => url = format!("http://localhost:8000/cargo/{}.json", dep),
+        _ => {}
+    }
     let resp = reqwest::Client::new().get(&url)
         .header("User-Agent", "depman (github.com/meain/depman)").send().await?.json().await?;
     Ok(resp)
@@ -228,6 +232,7 @@ pub async fn into(folder: &str) -> DepListList {
                 author: None,
                 description: None,
                 homepage: None,
+                package_repo: format!("https://crates.io/crates/{}", dep.to_string()),
                 license: None,
                 specified_version: DepVersionReq::from(&toml_tabl_to_string(&deps[dep])), // from config files
                 current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
@@ -250,6 +255,7 @@ pub async fn into(folder: &str) -> DepListList {
                 author: None,
                 description: None,
                 homepage: None,
+                package_repo: format!("https://crates.io/crates/{}", dep.to_string()),
                 license: None,
                 specified_version: DepVersionReq::from(&deps[dep].to_string()), // from config files
                 current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
@@ -273,6 +279,7 @@ pub async fn into(folder: &str) -> DepListList {
                 author: None,
                 description: None,
                 homepage: None,
+                package_repo: format!("https://crates.io/crates/{}", dep.to_string()),
                 license: None,
                 specified_version: DepVersionReq::from(&deps[dep].to_string()), // from config files
                 current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles

@@ -82,6 +82,7 @@ pub struct Dep {
     pub author: Option<Author>,
     pub description: Option<String>,
     pub homepage: Option<String>,
+    pub package_repo: String,
     pub license: Option<String>,
     pub specified_version: DepVersionReq, // from config files
     pub current_version: DepVersion,      // parsed from lockfiles
@@ -119,6 +120,9 @@ impl Dep {
             Some(value) => value.to_string(),
             None => "<unknown>".to_string(),
         }
+    }
+    pub fn get_package_repo(&self) -> String {
+        self.package_repo.to_string()
     }
     pub fn get_license(&self) -> String {
         match &self.license {

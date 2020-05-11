@@ -1,3 +1,4 @@
+use std::env;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
@@ -127,8 +128,11 @@ impl NpmResponse {
 
 
 async fn fetch_resp(dep: &str) -> Result<NpmResponse, Box<dyn Error>> {
-    let url = format!("https://registry.npmjs.org/{}", dep);
-    // let url = format!("http://localhost:8000/npm/{}.json", dep);
+    let mut url = format!("https://registry.npmjs.org/{}", dep);
+    match env::var("MEAIN_TEST_ENV") {
+        Ok(_) => url = format!("http://localhost:8000/npm/{}.json", dep),
+        _ => {}
+    }
     let resp = reqwest::get(&url).await?.json().await?;
     Ok(resp)
 }
@@ -173,6 +177,7 @@ pub async fn into(folder: &str) -> DepListList {
                 author: None,
                 description: None,
                 homepage: None,
+                package_repo: format!("https://www.npmjs.com/package/{}", dep.to_string()),
                 license: None,
                 specified_version: DepVersionReq::from(&deps[dep]), // from config files
                 current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
@@ -195,6 +200,7 @@ pub async fn into(folder: &str) -> DepListList {
                 author: None,
                 description: None,
                 homepage: None,
+                package_repo: format!("https://www.npmjs.com/package/{}", dep.to_string()),
                 license: None,
                 specified_version: DepVersionReq::from(&deps[dep]), // from config files
                 current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles

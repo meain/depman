@@ -99,6 +99,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         break;
                     }
                     Key::Char('o') => app.open_homepage(),
+                    Key::Char('p') => app.open_package_repo(),
                     Key::Char('?') => app.toggle_help_menu(), // h is for next tab
                     Key::Esc => app.hide_popup(),
                     Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
