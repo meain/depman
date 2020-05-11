@@ -239,9 +239,9 @@ impl DepListList {
 impl DepListList {
     pub async fn new(folder: &str, kind: &str) -> DepListList {
         match kind {
-            "javascript-package-json" => jspackagejson::into(folder).await,
-            "rust-cargo-toml" => rustcargotoml::into(folder).await,
-            _ => unreachable!(),
+            "javascript-npm" => jspackagejson::into(folder).await,
+            "rust-cargo" => rustcargotoml::into(folder).await,
+            _ => panic!("No package manager files found")
         }
     }
 }

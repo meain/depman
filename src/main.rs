@@ -1,12 +1,12 @@
 mod events;
-#[allow(dead_code)]
 mod parser;
 mod render;
 
 use crate::events::event::{Event, Events};
 use render::App;
 
-use std::io;
+use std::{io, env};
+use std::path::Path;
 use std::error::Error;
 use termion::event::Key;
 use termion::raw::IntoRawMode;
@@ -40,10 +40,27 @@ fn printer(dep_list_list: &DepListList) {
     }
 }
 
+fn find_type(folder: &str) -> &str {
+    println!("{}",format!("{}/package-lock.json", folder));
+    if Path::new(&format!("{}/package-lock.json", folder)).exists() {
+        return "javascript-npm";
+    } else if Path::new(&format!("{}/Cargo.lock", folder)).exists() {
+        return "rust-cargo";
+    }
+    ""  // TODO: return none
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // let dep_list_list = DepListList::new("tests/node/npm", "javascript-package-json").await;
-    let dep_list_list = DepListList::new("tests/cargo", "rust-cargo-toml").await;
+    let args: Vec<String> = env::args().collect();
+    let folder = match args.len() > 1 {
+        true => &args[1],
+        false => "."
+    };
+    let kind = find_type(&folder);
+    // let dep_list_list = DepListList::new("tests/js/npm", "javascript-npm").await;
+    // let dep_list_list = DepListList::new("tests/rust/cargo", "rust-cargo").await;
+    let dep_list_list = DepListList::new(folder, kind).await;
     printer(&dep_list_list);
 
     if true {
