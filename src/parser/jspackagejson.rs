@@ -128,8 +128,8 @@ impl NpmResponse {
 
 
 async fn fetch_resp(dep: &str) -> Result<NpmResponse, Box<dyn Error>> {
-    let url = format!("https://registry.npmjs.org/{}", dep);
-    // let url = format!("http://localhost:8000/npm/{}.json", dep);
+    // let url = format!("https://registry.npmjs.org/{}", dep);
+    let url = format!("http://localhost:8000/npm/{}.json", dep);
     let resp = reqwest::get(&url).await?.json().await?;
     Ok(resp)
 }

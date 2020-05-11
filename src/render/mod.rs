@@ -151,7 +151,12 @@ impl App {
                 ["o", "open homepage"],
             ];
             let mut text = vec![];
-            text.push(Text::styled("Keybindings\n", Style::default().fg(Color::Cyan).modifier(Modifier::UNDERLINED)));
+            text.push(Text::styled(
+                "Keybindings\n",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .modifier(Modifier::UNDERLINED),
+            ));
             for item in help_items.iter() {
                 text.push(Text::styled(
                     format!("{:<10}", item[0]),
@@ -159,7 +164,12 @@ impl App {
                 ));
                 text.push(Text::raw(format!("{}\n", item[1])));
             }
-            text.push(Text::styled("\n\nColors\n", Style::default().fg(Color::Cyan).modifier(Modifier::UNDERLINED)));
+            text.push(Text::styled(
+                "\n\nColors\n",
+                Style::default()
+                    .fg(Color::Cyan)
+                    .modifier(Modifier::UNDERLINED),
+            ));
             text.push(Text::styled("Green", Style::default().fg(Color::Green)));
             text.push(Text::styled(" Patch upgrade\n", Style::default()));
             text.push(Text::styled("Magenta", Style::default().fg(Color::Magenta)));
@@ -190,13 +200,29 @@ impl App {
 
                 let mut items = vec![];
                 for item in self.versions.items.iter() {
-                    let mut color = Color::Black;
-                    if &d.current_version.to_string() == item {
-                        color = Color::Cyan;
+                    if &d.current_version.to_string() == item
+                        && &d.get_latest_semver_version() == item
+                    {
+                        items.push(Text::styled(
+                            format!("{} current&latest", item),
+                            Style::default().fg(Color::Cyan),
+                        ));
+                    } else if &d.current_version.to_string() == item {
+                        items.push(Text::styled(
+                            format!("{} current", item),
+                            Style::default().fg(Color::Cyan),
+                        ));
                     } else if &d.get_latest_semver_version() == item {
-                        color = Color::Green;
+                        items.push(Text::styled(
+                            format!("{} latest-semver", item),
+                            Style::default().fg(Color::Green),
+                        ));
+                    } else {
+                        items.push(Text::styled(
+                            format!("{}", item),
+                            Style::default().fg(Color::Black),
+                        ));
                     }
-                    items.push(Text::styled(item, Style::default().fg(color)));
                 }
 
                 let mut color = Color::Black;
