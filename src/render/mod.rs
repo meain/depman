@@ -236,14 +236,11 @@ impl App {
                             Style::default().fg(Color::Green),
                         ));
                     } else {
-                        items.push(Text::styled(
-                            format!("{}", item),
-                            Style::default().fg(Color::Black),
-                        ));
+                        items.push(Text::raw(item));
                     }
                 }
 
-                let mut color = Color::Black;
+                let mut color = Color::White;
                 let current_item = self.versions.state.selected();
                 if let Some(ci) = current_item {
                     let item = &self.versions.items[ci];
