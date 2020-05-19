@@ -18,7 +18,7 @@ use tui::Terminal;
 
 use tokio;
 
-use parser::{DepListList};
+use parser::{DepListList, install_dep};
 
 fn printer(dep_list_list: &DepListList) {
     for dep_list in &dep_list_list.lists {
@@ -43,6 +43,7 @@ fn printer(dep_list_list: &DepListList) {
 }
 
 fn find_type(folder: &str) -> &str {
+    // TODO: This needs to return an enum
     if Path::new(&format!("{}/package-lock.json", folder)).exists() {
         return "javascript-npm";
     } else if Path::new(&format!("{}/Cargo.lock", folder)).exists() {
@@ -71,7 +72,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         terminal.hide_cursor()?;
 
         let events = Events::new();
-        let mut app = App::new(dep_list_list);
+        let mut app = App::new(dep_list_list, kind);
         app.next();
 
         loop {
@@ -107,6 +108,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     Key::Right | Key::Char('l') => app.tab_next(),
                     Key::Down | Key::Char('j') => app.next(),
                     Key::Up | Key::Char('k') => app.previous(),
+                    Key::Char('i') => install_dep(kind, app.get_install_candidate()), // TODO: switch to enter
                     Key::Char('g') => app.top(),
                     Key::Char('G') => app.bottom(),
                     _ => {}

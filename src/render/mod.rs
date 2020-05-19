@@ -9,7 +9,15 @@ use tui::terminal::Frame;
 
 use crate::parser::{Dep, DepListList, UpgradeType};
 
+#[derive(Debug)]
+pub struct InstallCandidate {
+    name: String,
+    version: String,
+    kind: String,
+}
+
 pub struct App {
+    kind: String,
     data: DepListList,
     items: StatefulList<String>,
     versions: StatefulList<String>,
@@ -20,7 +28,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(dep_list_list: DepListList) -> App {
+    pub fn new(dep_list_list: DepListList, kind: &str) -> App {
         let dep_kinds = dep_list_list.get_dep_kinds();
         let dep_names = dep_list_list.get_dep_names_of_kind(&dep_kinds[0]);
         let mut dep_versions = vec![];
@@ -28,6 +36,7 @@ impl App {
             dep_versions = dep.get_version_strings();
         }
         App {
+            kind: kind.to_string(),
             data: dep_list_list,
             items: StatefulList::with_items(dep_names),
             versions: StatefulList::with_items(dep_versions),
@@ -40,6 +49,10 @@ impl App {
 
     pub fn get_current_dep(&mut self) -> Option<Dep> {
         self.data.get_dep(&self.items.get_item())
+    }
+
+    pub fn get_selected_version(&mut self) -> String {
+        self.versions.get_item()
     }
 
     pub fn open_homepage(&mut self) {
@@ -149,6 +162,7 @@ impl App {
             self.versions.next();
         }
     }
+
     pub fn previous(&mut self) {
         if self.popup_shown {
             self.versions.previous();
@@ -166,6 +180,20 @@ impl App {
             self.versions.next();
         }
     }
+
+    pub fn get_install_candidate(&mut self) -> Option<InstallCandidate> {
+        if self.popup_shown {
+            let current_dep = self.get_current_dep().unwrap();
+            let version_string = self.get_selected_version();
+            return Some(InstallCandidate {
+                name: current_dep.name,
+                version: version_string,
+                kind: current_dep.kind,
+            });
+        }
+        None
+    }
+
     pub fn render_help_menu<B: Backend>(&mut self, f: &mut Frame<B>) {
         if self.help_menu_shown {
             let help_items = [

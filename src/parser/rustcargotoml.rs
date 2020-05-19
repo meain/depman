@@ -1,3 +1,4 @@
+use crate::render::InstallCandidate;
 use std::env;
 use std::collections::HashMap;
 use std::fs::File;
@@ -44,7 +45,7 @@ pub struct ConfigFile {
     #[serde(alias = "dev-dependencies")]
     devDependencies: Option<Table>,
     #[serde(alias = "build-dependencies")]
-    buidDependencies: Option<Table>,
+    buildDependencies: Option<Table>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -229,6 +230,7 @@ pub async fn into(folder: &str) -> DepListList {
         for dep in deps.keys() {
             let dep_item = Dep {
                 name: dep.to_string(),
+                kind: "dependencies".to_string(),
                 author: None,
                 description: None,
                 homepage: None,
@@ -252,6 +254,7 @@ pub async fn into(folder: &str) -> DepListList {
         for dep in deps.keys() {
             let dep_item = Dep {
                 name: dep.to_string(),
+                kind: "devDependencies".to_string(),
                 author: None,
                 description: None,
                 homepage: None,
@@ -271,11 +274,12 @@ pub async fn into(folder: &str) -> DepListList {
         })
     }
 
-    if let Some(deps) = config.buidDependencies {
+    if let Some(deps) = config.buildDependencies {
         let mut dep_list = vec![];
         for dep in deps.keys() {
             let dep_item = Dep {
                 name: dep.to_string(),
+                kind: "buildDependencies".to_string(),
                 author: None,
                 description: None,
                 homepage: None,
@@ -298,4 +302,8 @@ pub async fn into(folder: &str) -> DepListList {
     let mut dep_list_list = DepListList { lists: items };
     fetch_dep_infos(&mut dep_list_list).await;  // Error does not matter, there is nothing I can do
     dep_list_list
+}
+
+pub fn install_dep(dep: InstallCandidate){
+    todo!()
 }

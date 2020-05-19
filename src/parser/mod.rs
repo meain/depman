@@ -2,6 +2,7 @@ mod jspackagejson;
 mod rustcargotoml;
 
 use serde::{Deserialize, Serialize};
+use crate::render::InstallCandidate;
 
 #[derive(Debug, Clone)]
 pub enum DepVersion {
@@ -79,6 +80,7 @@ impl Author {
 #[derive(Debug, Clone)]
 pub struct Dep {
     pub name: String,
+    pub kind: String,
     pub author: Option<Author>,
     pub description: Option<String>,
     pub homepage: Option<String>,
@@ -246,6 +248,19 @@ impl DepListList {
             "javascript-npm" => jspackagejson::into(folder).await,
             "rust-cargo" => rustcargotoml::into(folder).await,
             _ => panic!("No package manager files found")
+        }
+    }
+}
+
+pub fn install_dep(kind: &str, dep: Option<InstallCandidate>){
+    match dep {
+        None => {}
+        Some(d) => {
+        match kind {
+            "javascript-npm" => jspackagejson::install_dep(d),
+            "rust-cargo" => rustcargotoml::install_dep(d),
+            _ => panic!("No package manager files found")
+        }
         }
     }
 }
