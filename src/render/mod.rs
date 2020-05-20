@@ -259,7 +259,7 @@ impl App {
                         && &d.get_latest_semver_version() == item
                     {
                         items.push(Text::styled(
-                            format!("{} current&latest", item),
+                            format!("{} current&latest-semver", item),
                             Style::default().fg(Color::Cyan),
                         ));
                     } else if &d.current_version.to_string() == item {
