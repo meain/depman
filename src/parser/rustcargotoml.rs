@@ -1,8 +1,5 @@
 use crate::render::InstallCandidate;
 use std::env;
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::BufReader;
 use std::path::Path;
 use std::error::Error;
 use humanesort::prelude::*;
@@ -11,7 +8,7 @@ use toml::Value;
 use toml::value::Table;
 
 use serde::{Deserialize, Serialize};
-use crate::parser::{Author, Dep, DepList, DepVersion, DepVersionReq, DepListList};
+use crate::parser::{Dep, DepList, DepVersion, DepVersionReq, DepListList};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 struct RutVersionObjectContent{
@@ -24,7 +21,7 @@ enum RustVersionObject {
 }
 
 impl RustVersionObject {
-    pub fn to_string(&self) -> String {
+    pub fn _to_string(&self) -> String {
         match self {
             RustVersionObject::Simple(s) => s.to_string(),
             RustVersionObject::Object(o) => o.version.to_string()
@@ -61,7 +58,6 @@ pub struct LockFile {
 impl LockFile {
     fn from(folder: &str) -> LockFile {
         let path_string = format!("{}/Cargo.lock", folder);
-        let path = Path::new(&path_string);
         let text_maybe = std::fs::read_to_string(path_string);
         match text_maybe {
             Ok(text) => {
@@ -89,7 +85,6 @@ impl LockFile {
 impl ConfigFile {
     fn from(folder: &str) -> ConfigFile {
         let path_string = format!("{}/Cargo.toml", folder);
-        let path = Path::new(&path_string);
         let text_maybe = std::fs::read_to_string(path_string);
         match text_maybe {
             Ok(text) => {

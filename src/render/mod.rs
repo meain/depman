@@ -253,8 +253,6 @@ impl App {
         if let Some(d) = self.get_current_dep() {
             // let upgrade_type = d.get_ugrade_type();
             if self.popup_shown {
-                let items = self.versions.items.iter().map(|i| Text::raw(i));
-
                 let mut items = vec![];
                 for item in self.versions.items.iter() {
                     if &d.current_version.to_string() == item
