@@ -60,6 +60,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         false => "."
     };
     let kind = find_type(&folder);
+    println!("Fetching dependency info...");
     let dep_list_list = DepListList::new(folder, kind).await;
     // printer(&dep_list_list);
 
