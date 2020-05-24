@@ -12,6 +12,7 @@ pub struct RandomSignal {
 }
 
 impl RandomSignal {
+    #[allow(dead_code)]
     pub fn new(lower: u64, upper: u64) -> RandomSignal {
         RandomSignal {
             distribution: Uniform::new(lower, upper),
@@ -36,6 +37,7 @@ pub struct SinSignal {
 }
 
 impl SinSignal {
+    #[allow(dead_code)]
     pub fn new(interval: f64, period: f64, scale: f64) -> SinSignal {
         SinSignal {
             x: 0.0,
@@ -84,6 +86,7 @@ pub struct StatefulList<T> {
 
 // Probably should use a cow here
 impl<T: std::clone::Clone> StatefulList<T> {
+    #[allow(dead_code)]
     pub fn new() -> StatefulList<T> {
         StatefulList {
             state: ListState::default(),
@@ -98,6 +101,7 @@ impl<T: std::clone::Clone> StatefulList<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn reset(&mut self) {
         if self.items.len() > 0 {
             self.state.select(Some(0));

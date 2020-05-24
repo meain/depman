@@ -20,6 +20,7 @@ use tokio;
 
 use parser::{DepListList, install_dep};
 
+#[allow(dead_code)]
 fn printer(dep_list_list: &DepListList) {
     for dep_list in &dep_list_list.lists {
         let kind = dep_list.name.to_string();

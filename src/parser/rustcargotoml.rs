@@ -1,6 +1,5 @@
 use crate::render::InstallCandidate;
 use std::env;
-use std::path::Path;
 use std::error::Error;
 use humanesort::prelude::*;
 use futures::future::try_join_all;
