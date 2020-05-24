@@ -304,6 +304,10 @@ pub fn install_dep(dep: InstallCandidate, folder: &str){
     let path_string = format!("{}/Cargo.toml", folder);
     let file_contents = std::fs::read_to_string(&path_string).unwrap();
     let mut doc = file_contents.parse::<Document>().expect("invalid doc");
-    doc[&dep.kind][&dep.name] = value(dep.version);
+    if doc[&dep.kind][&dep.name]["version"].is_none() {
+        doc[&dep.kind][&dep.name] = value(dep.version);
+    } else {
+        doc[&dep.kind][&dep.name]["version"] = value(dep.version);
+    }
     std::fs::write(&path_string, doc.to_string()).unwrap();
 }
