@@ -25,6 +25,7 @@ pub struct App {
     tabs: TabsState,
     popup_shown: bool,
     help_menu_shown: bool,
+    message: Option<String>,
 }
 
 impl App {
@@ -44,6 +45,7 @@ impl App {
             tabs: TabsState::new(dep_kinds),
             popup_shown: false,
             help_menu_shown: false,
+            message: None
         }
     }
 
@@ -192,6 +194,38 @@ impl App {
             });
         }
         None
+    }
+
+    pub fn set_message(&mut self, message: &str) {
+        self.message = Some(message.to_string());
+    }
+
+    pub fn remove_message(&mut self) {
+        self.message = None;
+    }
+
+    pub fn display_message<B: Backend>(&mut self, f: &mut Frame<B>) {
+        if let Some(message) = &self.message {
+            self.popup_shown = false;  // remove that version popup
+            let text = vec![
+                Text::raw(message)
+            ];
+            let block = Paragraph::new(text.iter())
+                .block(
+                    Block::default()
+                        .title("Message")
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(Color::White)),
+                )
+                .style(Style::default())
+                .alignment(Alignment::Left)
+                .scroll(self.help_content_pos)
+                .wrap(true);
+            let area = centered_rect(50, 10, f.size());
+            f.render_widget(Clear, area); //this clears out the background
+            f.render_widget(block, area);
+        }
     }
 
     pub fn render_help_menu<B: Backend>(&mut self, f: &mut Frame<B>) {

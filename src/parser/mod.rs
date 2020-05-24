@@ -252,9 +252,9 @@ impl DepListList {
     }
 }
 
-pub fn install_dep(kind: &str, dep: Option<InstallCandidate>, folder: &str){
+pub fn install_dep(kind: &str, dep: Option<InstallCandidate>, folder: &str) -> bool {
     match dep {
-        None => {}
+        None => { return false; }
         Some(d) => {
         match kind {
             "javascript-npm" => jspackagejson::install_dep(d, folder),
@@ -263,4 +263,5 @@ pub fn install_dep(kind: &str, dep: Option<InstallCandidate>, folder: &str){
         }
         }
     }
+    true
 }

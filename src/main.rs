@@ -94,6 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 app.render_dependency_info(&mut f, chunks[1]);
                 app.render_version_selector(&mut f);
                 app.render_help_menu(&mut f);
+                app.display_message(&mut f);
             })?;
             match events.next()? {
                 Event::Input(input) => match input {
@@ -103,13 +104,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     Key::Char('o') => app.open_homepage(),
                     Key::Char('p') => app.open_package_repo(),
                     Key::Char('?') => app.toggle_help_menu(), // h is for next tab
-                    Key::Esc => app.hide_popup(),
+                    Key::Esc => {
+                        app.hide_popup();
+                        app.remove_message();
+                    },
                     Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
                     Key::Left | Key::Char('h') => app.tab_previous(),
                     Key::Right | Key::Char('l') => app.tab_next(),
                     Key::Down | Key::Char('j') => app.next(),
                     Key::Up | Key::Char('k') => app.previous(),
-                    Key::Char('i') => install_dep(kind, app.get_install_candidate(), folder), // TODO: switch key to enter
+                    Key::Char('i') => { // TODO: switch key to enter
+                        let is_installed = install_dep(kind, app.get_install_candidate(), folder);
+                        if is_installed {
+                            app.set_message("Dependency version updated!");
+                        }
+                    },
                     Key::Char('g') => app.top(),
                     Key::Char('G') => app.bottom(),
                     _ => {}
