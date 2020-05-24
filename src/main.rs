@@ -18,7 +18,7 @@ use tui::Terminal;
 
 use tokio;
 
-use parser::{DepListList, install_dep};
+use parser::{DepListList, install_dep, search_dep};
 
 #[allow(dead_code)]
 fn printer(dep_list_list: &DepListList) {
@@ -95,33 +95,62 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 app.render_version_selector(&mut f);
                 app.render_help_menu(&mut f);
                 app.display_message(&mut f);
+                app.display_search_input(&mut f);
+                app.render_search_results(&mut f);
             })?;
             match events.next()? {
-                Event::Input(input) => match input {
-                    Key::Char('q') => {
-                        break;
-                    }
-                    Key::Char('o') => app.open_homepage(),
-                    Key::Char('p') => app.open_package_repo(),
-                    Key::Char('?') => app.toggle_help_menu(), // h is for next tab
-                    Key::Esc => {
-                        app.hide_popup();
-                        app.remove_message();
-                    },
-                    Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
-                    Key::Left | Key::Char('h') => app.tab_previous(),
-                    Key::Right | Key::Char('l') => app.tab_next(),
-                    Key::Down | Key::Char('j') => app.next(),
-                    Key::Up | Key::Char('k') => app.previous(),
-                    Key::Char('i') => { // TODO: switch key to enter
-                        let is_installed = install_dep(kind, app.get_install_candidate(), folder);
-                        if is_installed {
-                            app.set_message("Dependency version updated!");
+                Event::Input(input) => {
+                    match app.search_input_mode {
+                        true => match input {
+                            Key::Char(';') => {
+                                app.search_input_mode = false;
+                                app.set_message("Searching...");
+                                let result = search_dep(kind, &app.search_string).await;
+                                app.remove_message();
+                                match result {
+                                    Ok(r) =>{
+                                        app.show_searches(r);
+                                    },
+                                    _ => {
+                                        app.set_message("Search failed");
+                                    }
+                                }
+                            },
+                            Key::Char(_) | Key::Backspace => app.search_update(input),
+                            Key::Esc => {
+                                app.search_string = "".to_string();
+                                app.search_input_mode = false;
+                            },
+                            _ => {}
                         }
-                    },
-                    Key::Char('g') => app.top(),
-                    Key::Char('G') => app.bottom(),
-                    _ => {}
+                        false => match input {
+                                Key::Char('q') => {
+                                    break;
+                                }
+                                Key::Char('s') => app.search_input_mode = true,
+                                Key::Char('o') => app.open_homepage(),
+                                Key::Char('p') => app.open_package_repo(),
+                                Key::Char('?') => app.toggle_help_menu(), // h is for next tab
+                                Key::Esc => {
+                                    app.hide_popup();
+                                    app.remove_message();
+                                    app.show_searches = false;
+                                },
+                                Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
+                                Key::Left | Key::Char('h') => app.tab_previous(),
+                                Key::Right | Key::Char('l') => app.tab_next(),
+                                Key::Down | Key::Char('j') => app.next(),
+                                Key::Up | Key::Char('k') => app.previous(),
+                                Key::Char('i') => { // TODO: switch key to enter
+                                    let is_installed = install_dep(kind, app.get_install_candidate(), folder);
+                                    if is_installed {
+                                        app.set_message("Dependency version updated!");
+                                    }
+                                },
+                                Key::Char('g') => app.top(),
+                                Key::Char('G') => app.bottom(),
+                                _ => {}}
+                    }
                 },
                 _ => {}
             }

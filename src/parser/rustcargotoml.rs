@@ -8,7 +8,7 @@ use toml::value::Table;
 use toml_edit::{Document, value};
 
 use serde::{Deserialize, Serialize};
-use crate::parser::{Dep, DepList, DepVersion, DepVersionReq, DepListList};
+use crate::parser::{Dep, DepList, DepVersion, DepVersionReq, DepListList, SearchDep};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 struct RutVersionObjectContent{
@@ -309,4 +309,26 @@ pub fn install_dep(dep: InstallCandidate, folder: &str){
         doc[&dep.kind][&dep.name]["version"] = value(dep.version);
     }
     std::fs::write(&path_string, doc.to_string()).unwrap();
+}
+
+// TODO: probably add description and other stuff we have for normal deps
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct CratesIOSearchCreate {
+    name: String,
+    newest_version: String
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct CratesIOSearchResp {
+    crates: Vec<CratesIOSearchCreate>
+}
+
+pub async fn search_deps(name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>> {
+    let url = format!("https://crates.io/api/v1/crates?page=1&per_page=10&q={}", name);
+    let resp: CratesIOSearchResp = reqwest::Client::new().get(&url)
+        .header("User-Agent", "depman (github.com/meain/depman)").send().await?.json().await?;
+    let mut deps: Vec<SearchDep> = vec![];
+    for dep in resp.crates {
+        deps.push(SearchDep{name: dep.name, version: dep.newest_version});
+    }
+    Ok(deps)
 }

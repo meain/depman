@@ -1,4 +1,5 @@
 use crate::events::{StatefulList, TabsState};
+use termion::event::Key;
 use tui::backend::Backend;
 use tui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use tui::style::{Color, Modifier, Style};
@@ -7,7 +8,7 @@ use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Tex
 use std::process::Command;
 use tui::terminal::Frame;
 
-use crate::parser::{Dep, DepListList, DepVersion, UpgradeType};
+use crate::parser::{Dep, DepListList, DepVersion, SearchDep, UpgradeType};
 
 #[derive(Debug)]
 pub struct InstallCandidate {
@@ -26,6 +27,10 @@ pub struct App {
     popup_shown: bool,
     help_menu_shown: bool,
     message: Option<String>,
+    pub search_result: StatefulList<SearchDep>,
+    pub show_searches: bool,
+    pub search_string: String,
+    pub search_input_mode: bool,
 }
 
 impl App {
@@ -46,6 +51,10 @@ impl App {
             popup_shown: false,
             help_menu_shown: false,
             message: None,
+            show_searches: false,
+            search_result: StatefulList::with_items(vec![]),
+            search_string: "".to_string(),
+            search_input_mode: true,
         }
     }
 
@@ -130,6 +139,10 @@ impl App {
         self.items.next();
     }
 
+    pub fn get_current_tab_name(&self) -> String {
+        self.tabs.titles[self.tabs.index].to_string()
+    }
+
     pub fn top(&mut self) {
         if self.popup_shown {
             self.versions.first();
@@ -164,6 +177,8 @@ impl App {
             self.versions.next();
         } else if self.help_menu_shown {
             self.help_content_pos += 1;
+        } else if self.show_searches {
+            self.search_result.next();
         } else {
             self.items.next();
             let mut dep_versions = vec![];
@@ -182,6 +197,8 @@ impl App {
             if self.help_content_pos > 0 {
                 self.help_content_pos -= 1;
             }
+        } else if self.show_searches {
+            self.search_result.previous();
         } else {
             self.items.previous();
             let mut dep_versions = vec![];
@@ -219,6 +236,48 @@ impl App {
         match current_dep.available_versions {
             Some(av) => av.len() > 0,
             None => false,
+        }
+    }
+
+    pub fn show_searches(&mut self, r: Vec<SearchDep>) {
+        self.popup_shown = false;
+        self.message = None;
+        self.help_menu_shown = false;
+        self.show_searches = true;
+        self.search_result = StatefulList::with_items(r);
+        self.search_result.next();
+    }
+
+    pub fn search_update(&mut self, input: Key) {
+        match input {
+            Key::Char(s) => {
+                self.search_string.push(s);
+            }
+            Key::Backspace => {
+                self.search_string.pop();
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn display_search_input<B: Backend>(&mut self, f: &mut Frame<B>) {
+        if self.search_input_mode {
+            let text = vec![Text::raw(&self.search_string)];
+            let block = Paragraph::new(text.iter())
+                .block(
+                    Block::default()
+                        .title("Search")
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(Color::White)),
+                )
+                .style(Style::default())
+                .alignment(Alignment::Left)
+                .scroll(self.help_content_pos)
+                .wrap(true);
+            let area = centered_rect_absolute(50, 3, f.size());
+            f.render_widget(Clear, area); //this clears out the background
+            f.render_widget(block, area);
         }
     }
 
@@ -299,6 +358,31 @@ impl App {
             f.render_widget(block, area);
         }
     }
+
+    pub fn render_search_results<B: Backend>(&mut self, f: &mut Frame<B>) {
+        if self.show_searches {
+            let mut results = vec![];
+            for item in &self.search_result.items {
+                results.push(Text::raw(format!("{} {}", item.name, item.version)))
+            }
+            let block = List::new(results.into_iter())
+                .block(
+                    Block::default()
+                        .title("Search result")
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(Color::Red)),
+                )
+                .style(Style::default())
+                .highlight_style(Style::default())
+                .highlight_symbol("■ "); // ║ ▓ ■
+
+            let area = centered_rect(80, 50, f.size());
+            f.render_widget(Clear, area); //this clears out the background
+            f.render_stateful_widget(block, area, &mut self.search_result.state);
+        }
+    }
+
     pub fn render_version_selector<B: Backend>(&mut self, f: &mut Frame<B>) {
         if let Some(d) = self.get_current_dep() {
             // let upgrade_type = d.get_ugrade_type();

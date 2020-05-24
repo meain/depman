@@ -1,6 +1,7 @@
 mod jspackagejson;
 mod rustcargotoml;
 
+use std::error::Error;
 use serde::{Deserialize, Serialize};
 use crate::render::InstallCandidate;
 
@@ -8,6 +9,12 @@ use crate::render::InstallCandidate;
 pub enum DepVersion {
     Version(semver::Version),
     None,
+}
+
+#[derive(Debug, Clone)]
+pub struct SearchDep {
+    pub name: String,
+    pub version: String
 }
 
 impl DepVersion {
@@ -264,4 +271,12 @@ pub fn install_dep(kind: &str, dep: Option<InstallCandidate>, folder: &str) -> b
         }
     }
     true
+}
+
+pub async fn search_dep(kind: &str, name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>> {
+    match kind {
+        "javascript-npm" => Ok(jspackagejson::search_deps(name).await?),
+        "rust-cargo" => Ok(rustcargotoml::search_deps(name).await?),
+        _ => unreachable!()
+    }
 }

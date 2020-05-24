@@ -9,7 +9,7 @@ use humanesort::prelude::*;
 use futures::future::try_join_all;
 
 use serde::{Deserialize, Serialize};
-use crate::parser::{Author, Dep, DepList, DepVersion, DepVersionReq, DepListList};
+use crate::parser::{Author, Dep, DepList, DepVersion, DepVersionReq, DepListList, SearchDep};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JavascriptPackageJson {
@@ -230,4 +230,17 @@ pub fn install_dep(dep: InstallCandidate, folder: &str){
     let mut package_json: serde_json::Value = serde_json::from_str(&data).unwrap();
     package_json[dep.kind][dep.name] = serde_json::Value::String(dep.version);
     std::fs::write(&path_string, serde_json::to_string_pretty(&package_json).unwrap()).unwrap();
+}
+
+// TODO: Fix this
+pub async fn search_deps(name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>>{
+    // let url = format!("https://crates.io/api/v1/crates?page=1&per_page=10&q={}", name);
+    // let resp = reqwest::Client::new().get(&url)
+    //     .header("User-Agent", "depman (github.com/meain/depman)").send().await?.json().await?;
+    // let parsed_resp: CratesIOSearchResp = serde_json::from_str(resp)?;
+    let mut deps: Vec<SearchDep> = vec![];
+    // for dep in parsed_resp.crates {
+    //     deps.push(SearchDep{name: dep.name, version: dep.newest_version});
+    // }
+    Ok(deps)
 }
