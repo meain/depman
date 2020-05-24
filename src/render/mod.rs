@@ -297,7 +297,6 @@ impl App {
             let block = Paragraph::new(text.iter())
                 .block(
                     Block::default()
-                        .title("Message")
                         .borders(Borders::ALL)
                         .border_type(BorderType::Rounded)
                         .border_style(Style::default().fg(Color::White)),
