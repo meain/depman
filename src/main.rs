@@ -77,6 +77,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let mut app = App::new(dep_list_list, kind);
         app.next();
 
+        let mut search_in_next_iter: Option<String> = None;
+
         loop {
             terminal.draw(|mut f| {
                 let chunks = Layout::default()
@@ -98,6 +100,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 app.display_search_input(&mut f);
                 app.render_search_results(&mut f);
             })?;
+
+            if let Some(term) = search_in_next_iter {
+                search_in_next_iter = None;
+                let result = search_dep(kind, &term).await;
+                app.remove_message();
+                match result {
+                    Ok(r) => app.show_searches(r),
+                    _ => app.set_message("Search failed")
+                }
+                continue
+            }
+
             match events.next()? {
                 Event::Input(input) => {
                     match app.search_input_mode {
@@ -105,16 +119,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             Key::Char('\n') => {
                                 app.search_input_mode = false;
                                 app.set_message("Searching...");
-                                let result = search_dep(kind, &app.search_string).await;
-                                app.remove_message();
-                                match result {
-                                    Ok(r) =>{
-                                        app.show_searches(r);
-                                    },
-                                    _ => {
-                                        app.set_message("Search failed");
-                                    }
-                                }
+                                search_in_next_iter = Some(app.search_string.to_string());
                             },
                             Key::Char(_) | Key::Backspace => app.search_update(input),
                             Key::Esc => {
