@@ -222,7 +222,7 @@ impl App {
                 .alignment(Alignment::Left)
                 .scroll(self.help_content_pos)
                 .wrap(true);
-            let area = centered_rect(50, 10, f.size());
+            let area = centered_rect_absolute(50, 3 ,f.size());
             f.render_widget(Clear, area); //this clears out the background
             f.render_widget(block, area);
         }
@@ -439,6 +439,32 @@ fn get_version_color(upgrage_type: UpgradeType) -> Color {
         UpgradeType::Minor => Color::Magenta,
         UpgradeType::Patch => Color::Green,
     }
+}
+
+pub fn centered_rect_absolute(x: u16, y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(
+            [
+                Constraint::Length((r.height - y) / 2),
+                Constraint::Length(y),
+                Constraint::Length((r.height - y) / 2),
+            ]
+            .as_ref(),
+        )
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(
+            [
+                Constraint::Length((r.width - x) / 2),
+                Constraint::Length(x),
+                Constraint::Length((r.width - x) / 2),
+            ]
+            .as_ref(),
+        )
+        .split(popup_layout[1])[1]
 }
 
 pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
