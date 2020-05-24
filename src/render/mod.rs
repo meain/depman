@@ -89,6 +89,7 @@ impl App {
         self.help_menu_shown = false;
     }
     pub fn toggle_popup(&mut self) {
+        if let Some(_) = self.message { return }
         if self.popup_shown {
             self.popup_shown = false
         } else if !self.help_menu_shown {
@@ -96,6 +97,7 @@ impl App {
         }
     }
     pub fn toggle_help_menu(&mut self) {
+        if let Some(_) = self.message { return }
         if self.help_menu_shown {
             self.help_menu_shown = false
         } else if !self.popup_shown {
