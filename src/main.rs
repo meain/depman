@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 Event::Input(input) => {
                     match app.search_input_mode {
                         true => match input {
-                            Key::Char(';') => {
+                            Key::Char('\n') => {
                                 app.search_input_mode = false;
                                 app.set_message("Searching...");
                                 let result = search_dep(kind, &app.search_string).await;
@@ -141,7 +141,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 Key::Right | Key::Char('l') => app.tab_next(),
                                 Key::Down | Key::Char('j') => app.next(),
                                 Key::Up | Key::Char('k') => app.previous(),
-                                Key::Char('i') => { // TODO: switch key to enter
+                                Key::Char('\n') => {
                                     let is_installed = install_dep(kind, app.get_install_candidate(), folder);
                                     if is_installed {
                                         app.set_message("Dependency version updated!");
