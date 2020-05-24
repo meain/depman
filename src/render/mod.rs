@@ -7,7 +7,7 @@ use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Tex
 use std::process::Command;
 use tui::terminal::Frame;
 
-use crate::parser::{Dep, DepListList, UpgradeType};
+use crate::parser::{Dep, DepListList, DepVersion, UpgradeType};
 
 #[derive(Debug)]
 pub struct InstallCandidate {
@@ -45,7 +45,7 @@ impl App {
             tabs: TabsState::new(dep_kinds),
             popup_shown: false,
             help_menu_shown: false,
-            message: None
+            message: None,
         }
     }
 
@@ -89,7 +89,9 @@ impl App {
         self.help_menu_shown = false;
     }
     pub fn toggle_popup(&mut self) {
-        if let Some(_) = self.message { return }
+        if let Some(_) = self.message {
+            return;
+        }
         if self.popup_shown {
             self.popup_shown = false
         } else if !self.help_menu_shown {
@@ -97,7 +99,9 @@ impl App {
         }
     }
     pub fn toggle_help_menu(&mut self) {
-        if let Some(_) = self.message { return }
+        if let Some(_) = self.message {
+            return;
+        }
         if self.help_menu_shown {
             self.help_menu_shown = false
         } else if !self.popup_shown {
@@ -208,10 +212,8 @@ impl App {
 
     pub fn display_message<B: Backend>(&mut self, f: &mut Frame<B>) {
         if let Some(message) = &self.message {
-            self.popup_shown = false;  // remove that version popup
-            let text = vec![
-                Text::raw(message)
-            ];
+            self.popup_shown = false; // remove that version popup
+            let text = vec![Text::raw(message)];
             let block = Paragraph::new(text.iter())
                 .block(
                     Block::default()
@@ -224,7 +226,7 @@ impl App {
                 .alignment(Alignment::Left)
                 .scroll(self.help_content_pos)
                 .wrap(true);
-            let area = centered_rect_absolute(50, 3 ,f.size());
+            let area = centered_rect_absolute(50, 3, f.size());
             f.render_widget(Clear, area); //this clears out the background
             f.render_widget(block, area);
         }
@@ -399,20 +401,43 @@ impl App {
         // let items = self.items.items.iter().map(|i| Text::raw(i));
         if let Some(dc) = self.get_current_dep() {
             let dc_upgrade_type = dc.get_ugrade_type();
+            let is_newer_available = match &dc.current_version {
+                DepVersion::Version(cv) => match &dc.latest_version {
+                    Some(DepVersion::Version(lv)) => cv < &lv,
+                    _ => false,
+                },
+                _ => false,
+            };
             let mut items = vec![];
             for item in self.items.items.iter() {
                 let dep = self.data.get_dep(item);
                 match dep {
                     Some(d) => {
                         let upgrade_type = d.get_ugrade_type();
+                        let is_newer_available = match &d.current_version {
+                            DepVersion::Version(cv) => match &d.latest_version {
+                                Some(DepVersion::Version(lv)) => cv < &lv,
+                                _ => false,
+                            },
+                            _ => false,
+                        };
+                        let breaking_changes_string = match is_newer_available {
+                            true => match upgrade_type {
+                                UpgradeType::None => "+",
+                                _ => ""
+                            }
+                            false => ""
+                        };
                         items.push(Text::styled(
                             format!(
-                                "{} ({} > {})",
+                                "{} ({} > {})  {}",
                                 d.name,
                                 d.current_version.to_string(),
-                                d.get_latest_semver_version()
+                                d.get_latest_semver_version(),
+                                breaking_changes_string
                             ),
-                            Style::default().fg(get_version_color(upgrade_type)),
+                            Style::default()
+                                .fg(get_version_color(upgrade_type, is_newer_available)),
                         ));
                     }
                     None => unreachable!(),
@@ -427,16 +452,19 @@ impl App {
                         .border_style(Style::default().fg(Color::White)),
                 )
                 .style(Style::default())
-                .highlight_style(Style::default().fg(get_version_color(dc_upgrade_type)))
+                .highlight_style(Style::default().fg(get_version_color(dc_upgrade_type, is_newer_available)))
                 .highlight_symbol("■ "); // ║ ▓ ■
             f.render_stateful_widget(block, chunk, &mut self.items.state);
         }
     }
 }
 
-fn get_version_color(upgrage_type: UpgradeType) -> Color {
+fn get_version_color(upgrage_type: UpgradeType, is_newer_available: bool) -> Color {
     match upgrage_type {
-        UpgradeType::None => Color::White,
+        UpgradeType::None => match is_newer_available {
+            true => Color::White,  // TODO: figure out what exactly to do
+            false => Color::White,
+        },
         UpgradeType::Major => Color::Red,
         UpgradeType::Minor => Color::Magenta,
         UpgradeType::Patch => Color::Green,
