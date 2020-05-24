@@ -11,9 +11,9 @@ use crate::parser::{Dep, DepListList, UpgradeType};
 
 #[derive(Debug)]
 pub struct InstallCandidate {
-    name: String,
-    version: String,
-    kind: String,
+    pub name: String,
+    pub version: String,
+    pub kind: String,
 }
 
 pub struct App {

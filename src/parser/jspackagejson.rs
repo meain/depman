@@ -224,6 +224,6 @@ pub async fn into(folder: &str) -> DepListList {
     dep_list_list
 }
 
-pub fn install_dep(dep: InstallCandidate){
+pub fn install_dep(dep: InstallCandidate, folder: &str){
     todo!()
 }

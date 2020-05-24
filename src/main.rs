@@ -109,7 +109,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     Key::Right | Key::Char('l') => app.tab_next(),
                     Key::Down | Key::Char('j') => app.next(),
                     Key::Up | Key::Char('k') => app.previous(),
-                    Key::Char('i') => install_dep(kind, app.get_install_candidate()), // TODO: switch to enter
+                    Key::Char('i') => install_dep(kind, app.get_install_candidate(), folder), // TODO: switch key to enter
                     Key::Char('g') => app.top(),
                     Key::Char('G') => app.bottom(),
                     _ => {}

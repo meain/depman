@@ -252,13 +252,13 @@ impl DepListList {
     }
 }
 
-pub fn install_dep(kind: &str, dep: Option<InstallCandidate>){
+pub fn install_dep(kind: &str, dep: Option<InstallCandidate>, folder: &str){
     match dep {
         None => {}
         Some(d) => {
         match kind {
-            "javascript-npm" => jspackagejson::install_dep(d),
-            "rust-cargo" => rustcargotoml::install_dep(d),
+            "javascript-npm" => jspackagejson::install_dep(d, folder),
+            "rust-cargo" => rustcargotoml::install_dep(d, folder),
             _ => panic!("No package manager files found")
         }
         }

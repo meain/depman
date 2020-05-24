@@ -25,3 +25,4 @@ tokio = { version = "0.2", features = ["full"] }
 rand = "0.7"
 tui = "0.9"
 termion = "1.5"
+toml_edit = "0.1.5"
