@@ -219,6 +219,9 @@ impl App {
                 version: version_string,
                 kind: current_dep.kind,
             });
+        } else if self.show_searches {
+            let current_dep = self.get_current_dep().unwrap();
+            let name = self.search_result.items[self.search_result.state.selected().unwrap()];
         }
         None
     }
