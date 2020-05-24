@@ -91,7 +91,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .split(chunks[0]);
 
                 app.render_tabs(&mut f, tabl);
-                // app.render_dependency_list(&mut f, chunks[0]);
                 app.render_dependency_info(&mut f, chunks[1]);
                 app.render_version_selector(&mut f);
                 app.render_help_menu(&mut f);
