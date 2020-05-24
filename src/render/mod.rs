@@ -92,6 +92,10 @@ impl App {
         if let Some(_) = self.message {
             return;
         }
+        if !self.is_versions_available() {
+            self.message = Some("No versions available".to_string());
+            return;
+        }
         if self.popup_shown {
             self.popup_shown = false
         } else if !self.help_menu_shown {
@@ -208,6 +212,14 @@ impl App {
 
     pub fn remove_message(&mut self) {
         self.message = None;
+    }
+
+    pub fn is_versions_available(&mut self) -> bool {
+        let current_dep = self.get_current_dep().unwrap();
+        match current_dep.available_versions {
+            Some(av) => av.len() > 0,
+            None => false,
+        }
     }
 
     pub fn display_message<B: Backend>(&mut self, f: &mut Frame<B>) {
@@ -424,9 +436,9 @@ impl App {
                         let breaking_changes_string = match is_newer_available {
                             true => match upgrade_type {
                                 UpgradeType::None => "+",
-                                _ => ""
-                            }
-                            false => ""
+                                _ => "",
+                            },
+                            false => "",
                         };
                         items.push(Text::styled(
                             format!(
@@ -452,7 +464,9 @@ impl App {
                         .border_style(Style::default().fg(Color::White)),
                 )
                 .style(Style::default())
-                .highlight_style(Style::default().fg(get_version_color(dc_upgrade_type, is_newer_available)))
+                .highlight_style(
+                    Style::default().fg(get_version_color(dc_upgrade_type, is_newer_available)),
+                )
                 .highlight_symbol("■ "); // ║ ▓ ■
             f.render_stateful_widget(block, chunk, &mut self.items.state);
         }
@@ -462,7 +476,7 @@ impl App {
 fn get_version_color(upgrage_type: UpgradeType, is_newer_available: bool) -> Color {
     match upgrage_type {
         UpgradeType::None => match is_newer_available {
-            true => Color::White,  // TODO: figure out what exactly to do
+            true => Color::White, // TODO: figure out what exactly to do
             false => Color::White,
         },
         UpgradeType::Major => Color::Red,
