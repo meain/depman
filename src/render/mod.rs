@@ -54,7 +54,7 @@ impl App {
             show_searches: false,
             search_result: StatefulList::with_items(vec![]),
             search_string: "".to_string(),
-            search_input_mode: true,
+            search_input_mode: false,
         }
     }
 
@@ -292,6 +292,7 @@ impl App {
     pub fn display_message<B: Backend>(&mut self, f: &mut Frame<B>) {
         if let Some(message) = &self.message {
             self.popup_shown = false; // remove that version popup
+            self.show_searches = false;
             let text = vec![Text::raw(message)];
             let block = Paragraph::new(text.iter())
                 .block(
