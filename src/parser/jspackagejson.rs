@@ -225,5 +225,9 @@ pub async fn into(folder: &str) -> DepListList {
 }
 
 pub fn install_dep(dep: InstallCandidate, folder: &str){
-    todo!()
+    let path_string = format!("{}/package.json", folder);
+    let data = std::fs::read_to_string(&path_string).unwrap();
+    let mut package_json: serde_json::Value = serde_json::from_str(&data).unwrap();
+    package_json[dep.kind][dep.name] = serde_json::Value::String(dep.version);
+    std::fs::write(&path_string, serde_json::to_string_pretty(&package_json).unwrap()).unwrap();
 }
