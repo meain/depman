@@ -299,14 +299,22 @@ pub async fn into(folder: &str) -> DepListList {
     dep_list_list
 }
 
+fn convert_dep_type_string(kind: &str) -> &str {
+    match kind {
+        "devDependencies" => "dev-dependencies",
+        "buildDependencies" => "build-dependencies",
+        _ => "dependencies"
+    }
+}
+
 pub fn install_dep(dep: InstallCandidate, folder: &str){
     let path_string = format!("{}/Cargo.toml", folder);
     let file_contents = std::fs::read_to_string(&path_string).unwrap();
     let mut doc = file_contents.parse::<Document>().expect("invalid doc");
-    if doc[&dep.kind][&dep.name]["version"].is_none() {
-        doc[&dep.kind][&dep.name] = value(dep.version);
+    if doc[convert_dep_type_string(&dep.kind)][&dep.name]["version"].is_none() {
+        doc[convert_dep_type_string(&dep.kind)][&dep.name] = value(dep.version);
     } else {
-        doc[&dep.kind][&dep.name]["version"] = value(dep.version);
+        doc[convert_dep_type_string(&dep.kind)][&dep.name]["version"] = value(dep.version);
     }
     std::fs::write(&path_string, doc.to_string()).unwrap();
 }
