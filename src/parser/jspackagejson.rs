@@ -15,7 +15,7 @@ use crate::parser::{Author, Dep, DepList, DepVersion, DepVersionReq, DepListList
 pub struct JavascriptPackageJson {
     name: String,
     dependencies: Option<HashMap<String, String>>,
-    devDependencies: Option<HashMap<String, String>>,
+    dev_dependencies: Option<HashMap<String, String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -194,7 +194,7 @@ pub async fn into(folder: &str) -> DepListList {
             deps: dep_list,
         })
     }
-    if let Some(deps) = config.devDependencies {
+    if let Some(deps) = config.dev_dependencies {
         let mut dep_list = vec![];
         for dep in deps.keys() {
             let dep_item = Dep {

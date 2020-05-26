@@ -40,9 +40,9 @@ pub struct ConfigFile {
     package: ConfigFilePackage,
     dependencies: Option<Table>,
     #[serde(alias = "dev-dependencies")]
-    devDependencies: Option<Table>,
+    dev_dependencies: Option<Table>,
     #[serde(alias = "build-dependencies")]
-    buildDependencies: Option<Table>,
+    build_dependences: Option<Table>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -244,7 +244,7 @@ pub async fn into(folder: &str) -> DepListList {
             deps: dep_list,
         })
     }
-    if let Some(deps) = config.devDependencies {
+    if let Some(deps) = config.dev_dependencies {
         let mut dep_list = vec![];
         for dep in deps.keys() {
             let dep_item = Dep {
@@ -269,7 +269,7 @@ pub async fn into(folder: &str) -> DepListList {
         })
     }
 
-    if let Some(deps) = config.buildDependencies {
+    if let Some(deps) = config.build_dependences {
         let mut dep_list = vec![];
         for dep in deps.keys() {
             let dep_item = Dep {
