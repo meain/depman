@@ -127,16 +127,24 @@ impl App {
         let dep_names = self
             .data
             .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
-        self.items = StatefulList::with_items(dep_names);
-        self.items.next();
+        if dep_names.len() > 0 {
+            self.items = StatefulList::with_items(dep_names);
+            self.items.next();
+        } else {
+            self.items = StatefulList::with_items(dep_names);
+        }
     }
     pub fn tab_previous(&mut self) {
         self.tabs.previous();
         let dep_names = self
             .data
             .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
-        self.items = StatefulList::with_items(dep_names);
-        self.items.next();
+        if dep_names.len() > 0 {
+            self.items = StatefulList::with_items(dep_names);
+            self.items.next();
+        } else {
+            self.items = StatefulList::with_items(dep_names);
+        }
     }
 
     pub fn _get_current_tab_name(&self) -> String {
@@ -221,7 +229,8 @@ impl App {
             });
         } else if self.show_searches {
             let current_dep = self.get_current_dep().unwrap();
-            let search_dep = self.search_result.items[self.search_result.state.selected().unwrap()].clone();
+            let search_dep =
+                self.search_result.items[self.search_result.state.selected().unwrap()].clone();
             return Some(InstallCandidate {
                 name: search_dep.name,
                 version: search_dep.version,
