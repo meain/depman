@@ -322,6 +322,8 @@ impl App {
                 ["v/space", "show version list"],
                 ["o", "open homepage"],
                 ["p", "open package repo"],
+                ["s", "search for package"],
+                ["enter", "update version/install package"],
             ];
             let mut text = vec![];
             text.push(Text::styled(
