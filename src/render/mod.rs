@@ -127,12 +127,13 @@ impl App {
         let dep_names = self
             .data
             .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
-        if dep_names.len() > 0 {
-            self.items = StatefulList::with_items(dep_names);
-            self.items.next();
-        } else {
-            self.items = StatefulList::with_items(dep_names);
+        self.items = StatefulList::with_items(dep_names);
+        self.items.next();
+        let mut dep_versions = vec![];
+        if let Some(dep) = self.get_current_dep() {
+            dep_versions = dep.get_version_strings();
         }
+        self.versions = StatefulList::with_items(dep_versions);
         self.versions.state.select(self.get_current_version_index());
     }
     pub fn tab_previous(&mut self) {
@@ -140,12 +141,14 @@ impl App {
         let dep_names = self
             .data
             .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
-        if dep_names.len() > 0 {
-            self.items = StatefulList::with_items(dep_names);
-            self.items.next();
-        } else {
-            self.items = StatefulList::with_items(dep_names);
+        self.items = StatefulList::with_items(dep_names);
+        self.items.next();
+
+        let mut dep_versions = vec![];
+        if let Some(dep) = self.get_current_dep() {
+            dep_versions = dep.get_version_strings();
         }
+        self.versions = StatefulList::with_items(dep_versions);
         self.versions.state.select(self.get_current_version_index());
     }
 
