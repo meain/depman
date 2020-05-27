@@ -462,15 +462,14 @@ impl App {
     }
 
     pub fn get_current_version_index(&self) -> Option<usize> {
-        let mut current = None;
         if let Some(d) = &self.get_current_dep() {
             for (i, item) in self.versions.items.iter().enumerate() {
                 if &d.current_version.to_string() == item {
-                    current = Some(i);
+                    return Some(i);
                 }
             }
         }
-        current
+        None
     }
 
     pub fn render_tabs<B: Backend>(&mut self, mut f: &mut Frame<B>, chunk: Vec<Rect>) {
