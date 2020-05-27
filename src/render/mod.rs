@@ -18,7 +18,7 @@ pub struct InstallCandidate {
 }
 
 pub struct App {
-    kind: String,
+    _kind: String,
     data: DepListList,
     items: StatefulList<String>,
     versions: StatefulList<String>,
@@ -42,7 +42,7 @@ impl App {
             dep_versions = dep.get_version_strings();
         }
         App {
-            kind: kind.to_string(),
+            _kind: kind.to_string(),
             data: dep_list_list,
             items: StatefulList::with_items(dep_names),
             versions: StatefulList::with_items(dep_versions),
@@ -139,7 +139,7 @@ impl App {
         self.items.next();
     }
 
-    pub fn get_current_tab_name(&self) -> String {
+    pub fn _get_current_tab_name(&self) -> String {
         self.tabs.titles[self.tabs.index].to_string()
     }
 
