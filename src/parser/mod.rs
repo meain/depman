@@ -109,7 +109,7 @@ pub enum UpgradeType {
 }
 
 impl Dep {
-    pub fn get_name(&self) -> String {
+    pub fn _get_name(&self) -> String {
         self.name.to_string()
     }
     pub fn get_author(&self) -> String {
@@ -224,7 +224,7 @@ impl DepListList {
         }
         None
     }
-    pub fn get_dep_names(&self) -> Vec<String> {
+    pub fn _get_dep_names(&self) -> Vec<String> {
         let mut deps = vec![];
         for dep_list in &self.lists {
             for dep in &dep_list.deps {
