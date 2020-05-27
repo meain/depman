@@ -58,7 +58,7 @@ impl App {
         }
     }
 
-    pub fn get_current_dep(&mut self) -> Option<Dep> {
+    pub fn get_current_dep(&self) -> Option<Dep> {
         self.data.get_dep(&self.items.get_item())
     }
 
@@ -133,6 +133,7 @@ impl App {
         } else {
             self.items = StatefulList::with_items(dep_names);
         }
+        self.versions.state.select(self.get_current_version_index());
     }
     pub fn tab_previous(&mut self) {
         self.tabs.previous();
@@ -145,6 +146,7 @@ impl App {
         } else {
             self.items = StatefulList::with_items(dep_names);
         }
+        self.versions.state.select(self.get_current_version_index());
     }
 
     pub fn _get_current_tab_name(&self) -> String {
@@ -162,7 +164,7 @@ impl App {
                 dep_versions = dep.get_version_strings();
             }
             self.versions = StatefulList::with_items(dep_versions);
-            self.versions.next();
+            self.versions.state.select(self.get_current_version_index());
         }
     }
 
@@ -176,7 +178,7 @@ impl App {
                 dep_versions = dep.get_version_strings();
             }
             self.versions = StatefulList::with_items(dep_versions);
-            self.versions.next();
+            self.versions.state.select(self.get_current_version_index());
         }
     }
 
@@ -194,7 +196,7 @@ impl App {
                 dep_versions = dep.get_version_strings();
             }
             self.versions = StatefulList::with_items(dep_versions);
-            self.versions.next();
+            self.versions.state.select(self.get_current_version_index());
         }
     }
 
@@ -214,7 +216,7 @@ impl App {
                 dep_versions = dep.get_version_strings();
             }
             self.versions = StatefulList::with_items(dep_versions);
-            self.versions.next();
+            self.versions.state.select(self.get_current_version_index());
         }
     }
 
@@ -404,7 +406,6 @@ impl App {
 
     pub fn render_version_selector<B: Backend>(&mut self, f: &mut Frame<B>) {
         if let Some(d) = self.get_current_dep() {
-            // let upgrade_type = d.get_ugrade_type();
             if self.popup_shown {
                 let mut items = vec![];
                 for item in self.versions.items.iter() {
@@ -460,6 +461,18 @@ impl App {
         }
     }
 
+    pub fn get_current_version_index(&self) -> Option<usize> {
+        let mut current = None;
+        if let Some(d) = &self.get_current_dep() {
+            for (i, item) in self.versions.items.iter().enumerate() {
+                if &d.current_version.to_string() == item {
+                    current = Some(i);
+                }
+            }
+        }
+        current
+    }
+
     pub fn render_tabs<B: Backend>(&mut self, mut f: &mut Frame<B>, chunk: Vec<Rect>) {
         let tabs = Tabs::default()
             .block(Block::default())
@@ -513,7 +526,6 @@ impl App {
     }
 
     pub fn render_dependency_list<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
-        // let items = self.items.items.iter().map(|i| Text::raw(i));
         if let Some(dc) = self.get_current_dep() {
             let dc_upgrade_type = dc.get_ugrade_type();
             let is_newer_available = match &dc.current_version {
