@@ -8,7 +8,7 @@ use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Tex
 use std::process::Command;
 use tui::terminal::Frame;
 
-use crate::parser::{Dep, SearchDep, UpgradeType, ParserKind, Config};
+use crate::parser::{Dep, SearchDep, UpgradeType, Config};
 
 #[derive(Debug)]
 pub struct InstallCandidate {
