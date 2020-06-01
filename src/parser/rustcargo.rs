@@ -284,10 +284,18 @@ impl Parser for RustCargo {
         config
     }
 
+    fn delete_dep(dep: Dep, root: &str) {
+        let path_string = format!("{}/Cargo.toml", root);
+        let file_contents = std::fs::read_to_string(&path_string).unwrap();
+        let mut doc = file_contents.parse::<Document>().expect("Invalid config file");
+        doc[&dep.kind][&dep.name] = toml_edit::Item::None;
+        std::fs::write(&path_string, doc.to_string()).unwrap();
+    }
+
     fn install_dep(dep: InstallCandidate, root: &str) {
         let path_string = format!("{}/Cargo.toml", root);
         let file_contents = std::fs::read_to_string(&path_string).unwrap();
-        let mut doc = file_contents.parse::<Document>().expect("invalid doc");
+        let mut doc = file_contents.parse::<Document>().expect("Invalid config file");
         if doc[&dep.kind][&dep.name]["version"].is_none() {
             doc[&dep.kind][&dep.name] = value(dep.version);
         } else {

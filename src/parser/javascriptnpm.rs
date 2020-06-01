@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
 use semver::{Version, VersionReq};
+use serde_json::Value;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JavascriptPackageJson {
@@ -122,14 +123,22 @@ struct ResponseWithMeta {
     name: String,
     kind: String,
 }
-async fn fetch_resp(dep: &str, kind: String, name: String) -> Result<ResponseWithMeta, Box<dyn Error>> {
+async fn fetch_resp(
+    dep: &str,
+    kind: String,
+    name: String,
+) -> Result<ResponseWithMeta, Box<dyn Error>> {
     let mut url = format!("https://registry.npmjs.org/{}", dep);
     match env::var("MEAIN_TEST_ENV") {
         Ok(_) => url = format!("http://localhost:8000/npm/{}.json", dep),
         _ => {}
     }
     let resp = reqwest::get(&url).await?.json().await?;
-    Ok(ResponseWithMeta { data: resp, kind, name })
+    Ok(ResponseWithMeta {
+        data: resp,
+        kind,
+        name,
+    })
 }
 
 async fn fetch_dep_infos(config: &mut Config) -> Result<(), Box<dyn Error + 'static>> {
@@ -240,6 +249,20 @@ impl Parser for JavascriptNpm {
         let mut config = Config { dep_groups };
         let _ = fetch_dep_infos(&mut config).await; // ignore error
         config
+    }
+
+    fn delete_dep(dep: Dep, root: &str) {
+        let path_string = format!("{}/package.json", root);
+        let data = std::fs::read_to_string(&path_string).unwrap();
+        let mut package_json: serde_json::Value = serde_json::from_str(&data).unwrap();
+        if let Value::Object(pj) = &mut package_json[dep.kind] {
+            pj.remove(&dep.name);
+        }
+        std::fs::write(
+            &path_string,
+            serde_json::to_string_pretty(&package_json).unwrap(),
+        )
+        .unwrap();
     }
 
     fn install_dep(dep: InstallCandidate, folder: &str) {

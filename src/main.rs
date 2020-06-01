@@ -67,7 +67,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         terminal.hide_cursor()?;
 
         let mut events = Events::new();
-        let mut app = App::new(config);
+        let mut app = App::new(config, kind);
         app.next();
 
         let mut search_in_next_iter: Option<String> = None;
@@ -76,7 +76,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         loop {
             if reload {
                 let config = Config::new(folder, kind).await;
-                app = App::new(config);
+                app = App::new(config, kind);
                 app.next();
                 reload = false;
                 continue;
@@ -143,6 +143,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             Key::Char('s') => {
                                 events.disable_exit_key();
                                 app.search_input_mode = true
+                            }
+                            Key::Char('D') => {
+                                let status = Config::delete_dep(app.get_current_dep(), app.kind, folder);
+                                if status {
+                                    app.set_message("Dependency removed");
+                                    reload = true;
+                                }
                             }
                             Key::Char('o') => app.open_homepage(),
                             Key::Char('p') => app.open_package_repo(),

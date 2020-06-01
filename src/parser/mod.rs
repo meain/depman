@@ -14,6 +14,7 @@ use rustcargo::RustCargo;
 pub trait Parser {
     async fn parse(root: &str) -> Config;
     fn install_dep(dep: InstallCandidate, root: &str);
+    fn delete_dep(dep: Dep, root: &str);
     async fn search_deps(name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>>;
 }
 
@@ -173,6 +174,19 @@ impl Config {
 }
 
 impl Config {
+    pub fn delete_dep(dep: Option<Dep>, kind: ParserKind, root: &str) -> bool {
+        match dep {
+            None => false,
+            Some(d) => {
+                match kind {
+                    ParserKind::JavascriptNpm => JavascriptNpm::delete_dep(d, root),
+                    ParserKind::RustCargo => RustCargo::delete_dep(d, root),
+                }
+                true
+            }
+        }
+    }
+
     pub fn install_dep(kind: ParserKind, dep: Option<InstallCandidate>, root: &str) -> bool {
         match dep {
             None => false,
