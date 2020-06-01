@@ -1,9 +1,9 @@
 mod jspackagejson;
 mod rustcargotoml;
 
-use std::error::Error;
-use serde::{Deserialize, Serialize};
 use crate::render::InstallCandidate;
+use serde::{Deserialize, Serialize};
+use std::error::Error;
 
 #[derive(Debug, Clone)]
 pub enum DepVersion {
@@ -14,7 +14,7 @@ pub enum DepVersion {
 #[derive(Debug, Clone)]
 pub struct SearchDep {
     pub name: String,
-    pub version: String
+    pub version: String,
 }
 
 impl DepVersion {
@@ -72,13 +72,11 @@ pub struct Author {
 impl Author {
     pub fn to_string(&self) -> String {
         let mut author_string = self.name.to_string();
-        match &self.email {
-            Some(v) => author_string = format!("{} <{}>", author_string, &v.to_string()),
-            None => {}
+        if let Some(v) = &self.email {
+            author_string = format!("{} <{}>", author_string, &v.to_string());
         }
-        match &self.url {
-            Some(v) => author_string = format!("{} [{}]", author_string, &v.to_string()),
-            None => {}
+        if let Some(v) = &self.url {
+            author_string = format!("{} [{}]", author_string, &v.to_string());
         }
         author_string
     }
@@ -115,19 +113,19 @@ impl Dep {
     pub fn get_author(&self) -> String {
         match &self.author {
             Some(value) => value.to_string(),
-            None => "<unknown>".to_string(),
+            None => "-".to_string(),
         }
     }
     pub fn get_description(&self) -> String {
         match &self.description {
             Some(value) => value.to_string(),
-            None => "<unknown>".to_string(),
+            None => "-".to_string(),
         }
     }
     pub fn get_homepage(&self) -> String {
         match &self.homepage {
             Some(value) => value.to_string(),
-            None => "<unknown>".to_string(),
+            None => "-".to_string(),
         }
     }
     pub fn get_package_repo(&self) -> String {
@@ -136,30 +134,25 @@ impl Dep {
     pub fn get_license(&self) -> String {
         match &self.license {
             Some(value) => value.to_string(),
-            None => "<unknown>".to_string(),
+            None => "-".to_string(),
         }
     }
 
     pub fn get_ugrade_type(&self) -> UpgradeType {
-        match &self.current_version {
-            DepVersion::Version(cv) => match &self.latest_semver_version {
-                Some(svv) => match svv {
-                    DepVersion::Version(sv) => {
-                        if cv.major < sv.major {
-                            return UpgradeType::Major;
-                        }
-                        if cv.minor < sv.minor {
-                            return UpgradeType::Minor;
-                        }
-                        if cv.patch < sv.patch {
-                            return UpgradeType::Patch;
-                        }
+        if let DepVersion::Version(cv) = &self.current_version {
+            if let Some(svv) = &self.latest_semver_version {
+                if let DepVersion::Version(sv) = svv {
+                    if cv.major < sv.major {
+                        return UpgradeType::Major;
                     }
-                    _ => {}
-                },
-                _ => {}
-            },
-            _ => {}
+                    if cv.minor < sv.minor {
+                        return UpgradeType::Minor;
+                    }
+                    if cv.patch < sv.patch {
+                        return UpgradeType::Patch;
+                    }
+                }
+            }
         }
         UpgradeType::None
     }
@@ -254,21 +247,21 @@ impl DepListList {
         match kind {
             "javascript-npm" => jspackagejson::into(folder).await,
             "rust-cargo" => rustcargotoml::into(folder).await,
-            _ => panic!("No package manager files found")
+            _ => panic!("No package manager files found"),
         }
     }
 }
 
 pub fn install_dep(kind: &str, dep: Option<InstallCandidate>, folder: &str) -> bool {
     match dep {
-        None => { return false; }
-        Some(d) => {
-        match kind {
+        None => {
+            return false;
+        }
+        Some(d) => match kind {
             "javascript-npm" => jspackagejson::install_dep(d, folder),
             "rust-cargo" => rustcargotoml::install_dep(d, folder),
-            _ => panic!("No package manager files found")
-        }
-        }
+            _ => panic!("No package manager files found"),
+        },
     }
     true
 }
@@ -277,6 +270,6 @@ pub async fn search_dep(kind: &str, name: &str) -> Result<Vec<SearchDep>, Box<dy
     match kind {
         "javascript-npm" => Ok(jspackagejson::search_deps(name).await?),
         "rust-cargo" => Ok(rustcargotoml::search_deps(name).await?),
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 }
