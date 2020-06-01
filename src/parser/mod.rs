@@ -3,7 +3,7 @@ mod rustcargo;
 
 use crate::render::InstallCandidate;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::error::Error;
 
 use async_trait::async_trait;
@@ -128,11 +128,11 @@ impl Dep {
     }
 }
 
-type DepGroup = HashMap<String, Dep>;
+type DepGroup = BTreeMap<String, Dep>;
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    pub dep_groups: HashMap<String, DepGroup>,
+    pub dep_groups: BTreeMap<String, DepGroup>,
 }
 
 impl Config {

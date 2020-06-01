@@ -1,7 +1,7 @@
 use crate::render::InstallCandidate;
 use futures::future::try_join_all;
 use humanesort::prelude::*;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::env;
 use std::error::Error;
 use std::fs::File;
@@ -18,9 +18,9 @@ use semver::{Version, VersionReq};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JavascriptPackageJson {
     name: String,
-    dependencies: Option<HashMap<String, String>>,
+    dependencies: Option<BTreeMap<String, String>>,
     #[serde(alias = "devDependencies")]
-    dev_dependencies: Option<HashMap<String, String>>,
+    dev_dependencies: Option<BTreeMap<String, String>>,
 }
 impl JavascriptPackageJson {
     fn from(folder: &str) -> Option<JavascriptPackageJson> {
@@ -42,7 +42,7 @@ struct DepWithVersion {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JavascriptPackageJsonLockfile {
     name: String,
-    dependencies: Option<HashMap<String, DepWithVersion>>,
+    dependencies: Option<BTreeMap<String, DepWithVersion>>,
 }
 impl JavascriptPackageJsonLockfile {
     fn from(folder: &str) -> Option<JavascriptPackageJsonLockfile> {
@@ -74,7 +74,7 @@ pub struct NpmResponse {
     description: Option<String>,
     license: Option<String>,
     homepage: Option<String>,
-    versions: HashMap<String, MockVersionRight>, // TODO: remove this Value from here
+    versions: BTreeMap<String, MockVersionRight>, // TODO: remove this Value from here
 }
 
 impl NpmResponse {
@@ -202,10 +202,10 @@ fn build_dep_entry(
 
 fn build_deps_array(
     kind: &str,
-    deps: HashMap<String, String>,
+    deps: BTreeMap<String, String>,
     lockfile: &JavascriptPackageJsonLockfile,
 ) -> DepGroup {
-    let mut dep_group: DepGroup = HashMap::new();
+    let mut dep_group: DepGroup = BTreeMap::new();
     deps.keys().into_iter().for_each(|x| {
         dep_group.insert(
             x.to_string(),
@@ -223,7 +223,7 @@ impl Parser for JavascriptNpm {
         let configfile = JavascriptPackageJson::from(folder).expect("Unable to read package.json");
         let lockfile =
             JavascriptPackageJsonLockfile::from(folder).expect("Unable to read package-lock.json");
-        let mut dep_groups = HashMap::new();
+        let mut dep_groups = BTreeMap::new();
         if let Some(deps) = configfile.dependencies {
             dep_groups.insert(
                 "dependencies".to_string(),

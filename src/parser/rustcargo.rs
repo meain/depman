@@ -1,7 +1,7 @@
 use crate::render::InstallCandidate;
 use futures::future::try_join_all;
 use humanesort::prelude::*;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::env;
 use std::error::Error;
 use toml::value::Table;
@@ -237,7 +237,7 @@ fn build_dep_entry(
 }
 
 fn build_deps_array(kind: &str, deps: Table, lockfile: &LockFile) -> DepGroup {
-    let mut dep_group: DepGroup = HashMap::new();
+    let mut dep_group: DepGroup = BTreeMap::new();
     deps.keys().into_iter().for_each(|x| {
         dep_group.insert(
             x.to_string(),
@@ -259,7 +259,7 @@ impl Parser for RustCargo {
     async fn parse(root: &str) -> Config {
         let configfile = ConfigFile::from(root).expect(&format!("Unable to parse Cargo.toml"));
         let lockfile = LockFile::from(root).expect(&format!("Unable to parse Cargo.lock"));
-        let mut dep_groups = HashMap::new();
+        let mut dep_groups = BTreeMap::new();
         if let Some(deps) = configfile.dependencies {
             dep_groups.insert(
                 "dependencies".to_string(),
