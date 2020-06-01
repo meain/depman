@@ -338,7 +338,7 @@ impl App {
                 ["p", "open package repo"],
                 ["s", "search for package"],
                 ["D", "delete package"],
-                ["enter", "update version/install package"],
+                ["enter", "update/install package"],
                 ["q", "quit depman"],
             ];
             let mut text = vec![];
