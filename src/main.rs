@@ -79,6 +79,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 app = App::new(config);
                 app.next();
                 reload = false;
+                continue;
             }
             terminal.draw(|mut f| {
                 let chunks = Layout::default()
