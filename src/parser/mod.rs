@@ -73,31 +73,19 @@ pub enum UpgradeType {
 
 impl Dep {
     pub fn get_author(&self) -> String {
-        match &self.author {
-            Some(value) => value.to_string(),
-            None => "-".to_string(),
-        }
+        self.author.as_ref().map_or("-".to_string(), |x| x.to_string())
     }
     pub fn get_description(&self) -> String {
-        match &self.description {
-            Some(value) => value.to_string(),
-            None => "-".to_string(),
-        }
+        self.description.as_ref().map_or("-".to_string(), |x| x.to_string())
     }
     pub fn get_homepage(&self) -> String {
-        match &self.homepage {
-            Some(value) => value.to_string(),
-            None => "-".to_string(),
-        }
+        self.homepage.as_ref().map_or("-".to_string(), |x| x.to_string())
     }
     pub fn get_package_repo(&self) -> String {
         self.package_repo.to_string()
     }
     pub fn get_license(&self) -> String {
-        match &self.license {
-            Some(value) => value.to_string(),
-            None => "-".to_string(),
-        }
+        self.license.as_ref().map_or("-".to_string(), |x| x.to_string())
     }
 
     pub fn get_ugrade_type(&self) -> UpgradeType {
@@ -127,28 +115,16 @@ impl Dep {
         version_strings
     }
     pub fn get_specified_version(&self) -> String {
-        match &self.specified_version {
-            Some(v) => v.to_string(),
-            None => "-".to_string(),
-        }
+        self.specified_version.as_ref().map_or("-".to_string(), |x| x.to_string())
     }
     pub fn get_current_version(&self) -> String {
-        match &self.current_version {
-            Some(v) => v.to_string(),
-            None => "-".to_string(),
-        }
+        self.current_version.as_ref().map_or("-".to_string(), |x| x.to_string())
     }
     pub fn get_latest_version(&self) -> String {
-        match &self.latest_version {
-            Some(v) => v.to_string(),
-            None => "-".to_string(),
-        }
+        self.latest_version.as_ref().map_or("-".to_string(), |x| x.to_string())
     }
     pub fn get_latest_semver_version(&self) -> String {
-        match &self.latest_semver_version {
-            Some(v) => v.to_string(),
-            None => "-".to_string(),
-        }
+        self.latest_semver_version.as_ref().map_or("-".to_string(), |x| x.to_string())
     }
 }
 
