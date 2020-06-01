@@ -5,6 +5,12 @@ use crate::render::InstallCandidate;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 
+#[derive(Copy, Clone)]
+pub enum ParserKind {
+    RustCargo,
+    JavascriptNpm
+}
+
 #[derive(Debug, Clone)]
 pub enum DepVersion {
     Version(semver::Version),
@@ -243,33 +249,30 @@ impl DepListList {
 }
 
 impl DepListList {
-    pub async fn new(folder: &str, kind: &str) -> DepListList {
+    pub async fn new(folder: &str, kind: ParserKind) -> DepListList {
         match kind {
-            "javascript-npm" => jspackagejson::into(folder).await,
-            "rust-cargo" => rustcargotoml::into(folder).await,
-            _ => panic!("No package manager files found"),
+            ParserKind::JavascriptNpm => jspackagejson::into(folder).await,
+            ParserKind::RustCargo => rustcargotoml::into(folder).await,
         }
     }
 }
 
-pub fn install_dep(kind: &str, dep: Option<InstallCandidate>, folder: &str) -> bool {
+pub fn install_dep(kind: ParserKind, dep: Option<InstallCandidate>, folder: &str) -> bool {
     match dep {
         None => {
             return false;
         }
         Some(d) => match kind {
-            "javascript-npm" => jspackagejson::install_dep(d, folder),
-            "rust-cargo" => rustcargotoml::install_dep(d, folder),
-            _ => panic!("No package manager files found"),
+            ParserKind::JavascriptNpm => jspackagejson::install_dep(d, folder),
+            ParserKind::RustCargo => rustcargotoml::install_dep(d, folder),
         },
     }
     true
 }
 
-pub async fn search_dep(kind: &str, name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>> {
+pub async fn search_dep(kind: ParserKind, name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>> {
     match kind {
-        "javascript-npm" => Ok(jspackagejson::search_deps(name).await?),
-        "rust-cargo" => Ok(rustcargotoml::search_deps(name).await?),
-        _ => unreachable!(),
+        ParserKind::JavascriptNpm => Ok(jspackagejson::search_deps(name).await?),
+        ParserKind::RustCargo => Ok(rustcargotoml::search_deps(name).await?),
     }
 }

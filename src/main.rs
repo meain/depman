@@ -12,13 +12,13 @@ use termion::event::Key;
 use termion::raw::IntoRawMode;
 use termion::input::MouseTerminal;
 use termion::screen::AlternateScreen;
-use tui::backend::{TermionBackend};
+use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::Terminal;
 
 use tokio;
 
-use parser::{DepListList, install_dep, search_dep};
+use parser::{DepListList, install_dep, search_dep, ParserKind};
 
 #[allow(dead_code)]
 fn printer(dep_list_list: &DepListList) {
@@ -43,14 +43,13 @@ fn printer(dep_list_list: &DepListList) {
     }
 }
 
-fn find_type(folder: &str) -> &str {
-    // TODO: This needs to return an enum
+fn find_type(folder: &str) -> Option<ParserKind> {
     if Path::new(&format!("{}/package-lock.json", folder)).exists() {
-        return "javascript-npm";
+        return Some(ParserKind::JavascriptNpm)
     } else if Path::new(&format!("{}/Cargo.lock", folder)).exists() {
-        return "rust-cargo";
+        return Some(ParserKind::RustCargo)
     }
-    ""  // TODO: return none
+    None
 }
 
 #[tokio::main]
@@ -60,7 +59,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         true => &args[1],
         false => "."
     };
-    let kind = find_type(&folder);
+    let kind = find_type(&folder).expect("Unsupported package manager");
     println!("Fetching dependency info...");
     let dep_list_list = DepListList::new(folder, kind).await;
     // printer(&dep_list_list);

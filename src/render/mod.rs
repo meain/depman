@@ -8,7 +8,7 @@ use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Tex
 use std::process::Command;
 use tui::terminal::Frame;
 
-use crate::parser::{Dep, DepListList, DepVersion, SearchDep, UpgradeType};
+use crate::parser::{Dep, DepListList, DepVersion, SearchDep, UpgradeType, ParserKind};
 
 #[derive(Debug)]
 pub struct InstallCandidate {
@@ -18,7 +18,7 @@ pub struct InstallCandidate {
 }
 
 pub struct App {
-    _kind: String,
+    _kind: ParserKind,
     data: DepListList,
     items: StatefulList<String>,
     versions: StatefulList<String>,
@@ -34,7 +34,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(dep_list_list: DepListList, kind: &str) -> App {
+    pub fn new(dep_list_list: DepListList, kind: ParserKind) -> App {
         let dep_kinds = dep_list_list.get_dep_kinds();
         let dep_names = dep_list_list.get_dep_names_of_kind(&dep_kinds[0]);
         let mut dep_versions = vec![];
@@ -42,7 +42,7 @@ impl App {
             dep_versions = dep.get_version_strings();
         }
         App {
-            _kind: kind.to_string(),
+            _kind: kind,
             data: dep_list_list,
             items: StatefulList::with_items(dep_names),
             versions: StatefulList::with_items(dep_versions),
