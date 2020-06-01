@@ -160,7 +160,7 @@ async fn fetch_dep_infos(config: &mut Config) -> Result<(), Box<dyn Error + 'sta
     for (kind, group) in config.dep_groups.iter() {
         for (name, dep) in group.iter() {
             // so that we do not refetch it on rerender
-            if let Some(_) = dep.latest_version {
+            if let None = dep.latest_version {
                 gets.push(fetch_resp(name.to_string(), kind.to_string()));
             }
         }

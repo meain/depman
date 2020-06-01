@@ -77,6 +77,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             if reload {
                 let config = Config::new(folder, kind).await;
                 app = App::new(config);
+                app.next();
                 reload = false;
             }
             terminal.draw(|mut f| {
