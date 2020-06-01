@@ -129,7 +129,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             _ => {}
                         },
                         false => match input {
-                            Key::Char('q') => {
+                            Key::Char('q') | Key::Ctrl('c') => {
                                 break;
                             }
                             Key::Char('s') => app.search_input_mode = true,
