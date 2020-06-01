@@ -22,7 +22,6 @@ enum RustVersionObject {
     Simple(String),
     Object(RutVersionObjectContent),
 }
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 struct ConfigFilePackage {
     name: String,
@@ -37,6 +36,18 @@ pub struct ConfigFile {
     #[serde(alias = "build-dependencies")]
     build_dependences: Option<Table>,
 }
+impl ConfigFile {
+    fn from(root: &str) -> Option<ConfigFile> {
+        let path_string = format!("{}/Cargo.toml", root);
+        let text = std::fs::read_to_string(&path_string)
+            .expect(&format!("Unable to read {}", &path_string));
+        let p = toml::from_str(&text);
+        match p {
+            Ok(package_json) => Some(package_json),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 struct DepWithVersion {
@@ -47,7 +58,6 @@ struct DepWithVersion {
 pub struct LockFile {
     package: Vec<DepWithVersion>,
 }
-
 impl LockFile {
     fn from(root: &str) -> Option<LockFile> {
         let path_string = format!("{}/Cargo.lock", root);
@@ -69,19 +79,6 @@ impl LockFile {
     }
 }
 
-impl ConfigFile {
-    fn from(root: &str) -> Option<ConfigFile> {
-        let path_string = format!("{}/Cargo.toml", root);
-        let text = std::fs::read_to_string(&path_string)
-            .expect(&format!("Unable to read {}", &path_string));
-        let p = toml::from_str(&text);
-        match p {
-            Ok(package_json) => Some(package_json),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct CargoResponseCrate {
     name: String,
@@ -89,19 +86,16 @@ struct CargoResponseCrate {
     license: Option<String>, // TODO: license is version specific
     homepage: Option<String>,
 }
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct CargoResponseVersion {
     num: String,
 }
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CargoResponse {
     #[serde(alias = "crate")]
     info: CargoResponseCrate,
     versions: Vec<CargoResponseVersion>,
 }
-
 impl CargoResponse {
     pub fn get_versions_list(&self) -> Vec<DepVersion> {
         let mut versions = vec![];
@@ -110,7 +104,6 @@ impl CargoResponse {
         }
         versions
     }
-
     pub fn inject_inportant_versions(&self, dep: &mut Dep) {
         let mut key_list: Vec<String> = Vec::new();
         for version in &self.versions {
@@ -140,9 +133,8 @@ impl CargoResponse {
 
 async fn fetch_resp(dep: &str) -> Result<CargoResponse, Box<dyn Error>> {
     let mut url = format!("https://crates.io/api/v1/crates/{}", dep);
-    match env::var("MEAIN_TEST_ENV") {
-        Ok(_) => url = format!("http://localhost:8000/cargo/{}.json", dep),
-        _ => {}
+    if let Ok(_) = env::var("MEAIN_TEST_ENV") {
+        url = format!("http://localhost:8000/cargo/{}.json", dep)
     }
     let resp = reqwest::Client::new()
         .get(&url)
@@ -157,10 +149,7 @@ async fn fetch_resp(dep: &str) -> Result<CargoResponse, Box<dyn Error>> {
 async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn Error + 'static>> {
     let mut gets = vec![];
     for dep_list in &dep_list_list.lists {
-        for dep in &dep_list.deps {
-            let get = fetch_resp(&dep.name);
-            gets.push(get);
-        }
+        gets.extend(dep_list.deps.iter().map(|x| fetch_resp(&x.name)));
     }
     let results = try_join_all(gets).await?;
 
@@ -172,7 +161,6 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
                     dep.available_versions = Some(result.get_versions_list());
                     dep.license = result.info.license.clone();
                     dep.homepage = result.info.homepage.clone();
-                    // dep.author = result.info.author.clone(); // author does not exist
                     result.inject_inportant_versions(&mut dep);
                 }
             }
@@ -278,7 +266,7 @@ impl Parser for RustCargo {
         }
 
         let mut dep_list_list = DepListList { lists: items };
-        let _ = fetch_dep_infos(&mut dep_list_list).await;  // ignore error
+        let _ = fetch_dep_infos(&mut dep_list_list).await; // ignore error
         dep_list_list
     }
 
