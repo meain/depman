@@ -29,9 +29,9 @@ struct ConfigFilePackage {
     name: String,
 }
 
+// TODO: make this dynamic so that cfg specific deps can be added
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ConfigFile {
-    package: ConfigFilePackage,
     dependencies: Option<Table>,
     #[serde(alias = "dev-dependencies")]
     dev_dependencies: Option<Table>,
@@ -158,8 +158,11 @@ async fn fetch_resp(dep: String, kind: String) -> Result<CargoResponseWithKind, 
 async fn fetch_dep_infos(config: &mut Config) -> Result<(), Box<dyn Error + 'static>> {
     let mut gets = vec![];
     for (kind, group) in config.dep_groups.iter() {
-        for name in group.keys() {
-            gets.push(fetch_resp(name.to_string(), kind.to_string()));
+        for (name, dep) in group.iter() {
+            // so that we do not refetch it on rerender
+            if let Some(_) = dep.latest_version {
+                gets.push(fetch_resp(name.to_string(), kind.to_string()));
+            }
         }
     }
 

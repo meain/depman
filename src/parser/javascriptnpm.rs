@@ -135,8 +135,11 @@ async fn fetch_resp(dep: &str, kind: String, name: String) -> Result<ResponseWit
 async fn fetch_dep_infos(config: &mut Config) -> Result<(), Box<dyn Error + 'static>> {
     let mut gets = vec![];
     for (kind, group) in config.dep_groups.iter() {
-        for name in group.keys() {
-            gets.push(fetch_resp(name, kind.to_string(), name.to_string()));
+        for (name, dep) in group.iter() {
+            // so that we do not refetch it on rerender
+            if let Some(_) = dep.latest_version {
+                gets.push(fetch_resp(name, kind.to_string(), name.to_string()));
+            }
         }
     }
     let results = try_join_all(gets).await?;
