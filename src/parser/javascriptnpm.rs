@@ -19,6 +19,7 @@ use semver::{Version, VersionReq};
 pub struct JavascriptPackageJson {
     name: String,
     dependencies: Option<HashMap<String, String>>,
+    #[serde(alias = "devDependencies")]
     dev_dependencies: Option<HashMap<String, String>>,
 }
 impl JavascriptPackageJson {
