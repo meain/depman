@@ -274,16 +274,15 @@ impl App {
             return Some(InstallCandidate {
                 name: current_dep.name,
                 version: version_string,
-                kind: current_dep.kind,
+                kind: self.tabs.titles[self.tabs.index].to_string(),
             });
         } else if self.show_searches {
-            let current_dep = self.get_current_dep().unwrap();
             let search_dep =
                 self.search_result.items[self.search_result.state.selected().unwrap()].clone();
             return Some(InstallCandidate {
                 name: search_dep.name,
                 version: search_dep.version,
-                kind: current_dep.kind,
+                kind: self.tabs.titles[self.tabs.index].to_string(),
             });
         }
         None
