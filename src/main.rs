@@ -72,7 +72,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         terminal.hide_cursor()?;
 
         let events = Events::new();
-        let mut app = App::new(config, kind);
+        let mut app = App::new(config);
         app.next();
 
         let mut search_in_next_iter: Option<String> = None;

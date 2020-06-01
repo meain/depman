@@ -18,7 +18,6 @@ pub struct InstallCandidate {
 }
 
 pub struct App {
-    kind: ParserKind,
     data: Config,
     items: StatefulList<String>,
     versions: StatefulList<String>,
@@ -34,7 +33,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(config: Config, kind: ParserKind) -> App {
+    pub fn new(config: Config) -> App {
         let dep_kinds = config.get_dep_kinds();
         let dep_names = config.get_dep_names_of_kind(&dep_kinds[0]);
         let mut dep_versions = vec![];
@@ -42,7 +41,6 @@ impl App {
             dep_versions = dep.get_version_strings();
         }
         App {
-            kind,
             data: config,
             items: StatefulList::with_items(dep_names),
             versions: StatefulList::with_items(dep_versions),
