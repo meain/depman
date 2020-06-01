@@ -4,6 +4,3 @@
 | ![dark](https://images.meain.io/dump/1589176873.png) | ![light](https://images.meain.io/dump/1589176991.png) |
 | :--------------------------------------------------: | :---------------------------------------------------: |
 |                         DARK                         |                         LIGHT                         |
-
-
-- maybe add some color if new version is available even if new semver is not available
