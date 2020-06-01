@@ -129,8 +129,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             _ => {}
                         },
                         false => match input {
-                            Key::Char('q') | Key::Ctrl('c') => {
+                            Key::Char('q') => {
                                 break;
+                            }
+                            Key::Ctrl('c') => {
+                                drop(terminal);
+                                std::process::exit(0);
                             }
                             Key::Char('s') => app.search_input_mode = true,
                             Key::Char('o') => app.open_homepage(),
