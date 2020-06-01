@@ -42,8 +42,10 @@ impl App {
         let dep_kinds = config.get_dep_kinds();
         let dep_names = config.get_dep_names_of_kind(&dep_kinds[0]);
         let mut dep_versions = vec![];
-        if let Some(dep) = config.get_dep(&dep_names[0]) {
-            dep_versions = dep.get_version_strings();
+        if dep_names.len() > 0 {
+            if let Some(dep) = config.get_dep(&dep_names[0]) {
+                dep_versions = dep.get_version_strings();
+            }
         }
         App {
             kind,
@@ -97,7 +99,11 @@ impl App {
     }
 
     pub fn get_current_dep(&self) -> Option<Dep> {
-        self.data.get_dep(&self.items.get_item())
+        if self.items.items.len() > 0 {
+            self.data.get_dep(&self.items.get_item())
+        } else {
+            None
+        }
     }
 
     pub fn get_selected_version(&mut self) -> String {
@@ -624,6 +630,24 @@ impl App {
                 )
                 .highlight_symbol("■ "); // ║ ▓ ■
             f.render_stateful_widget(block, chunk, &mut self.items.state);
+        } else {
+            let text = vec![Text::styled(
+                "No dependencies available",
+                Style::default().fg(Color::White),
+            )];
+            let block = Paragraph::new(text.iter())
+                .block(
+                    Block::default()
+                        .title("Dependencies")
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(Color::White)),
+                )
+                .style(Style::default())
+                .alignment(Alignment::Center)
+                .scroll(self.help_content_pos)
+                .wrap(true);
+            f.render_widget(block, chunk);
         }
     }
 }
