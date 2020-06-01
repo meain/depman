@@ -18,21 +18,20 @@ use tui::Terminal;
 
 use tokio;
 
-use parser::{DepListList, install_dep, search_dep, ParserKind};
+use parser::{ParserKind, Config};
 
 #[allow(dead_code)]
-fn printer(dep_list_list: &DepListList) {
-    for dep_list in &dep_list_list.lists {
-        let kind = dep_list.name.to_string();
-        for dep in &dep_list.deps {
-            let name = dep.name.to_string();
+fn printer(config: &Config) {
+    for (gn, group) in config.dep_groups.iter() {
+        for (_, dep) in group.iter() {
+            let name = &dep.name;
             let specified_version = &dep.get_specified_version();
             let current_version = &dep.get_current_version();
             let latest_version = &dep.get_latest_version();
             let latest_semver_version = &dep.get_latest_semver_version();
             println!(
                 "{}: [{}] {}({}) => {}({})",
-                kind,
+                gn,
                 name,
                 specified_version,
                 current_version,
@@ -61,8 +60,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     let kind = find_type(&folder).expect("Unsupported package manager");
     println!("Fetching dependency info...");
-    let dep_list_list = DepListList::new(folder, kind).await;
-    // printer(&dep_list_list);
+    let config = Config::new(folder, kind).await;
+    // printer(&config);
 
     if true {
         let stdout = io::stdout().into_raw_mode()?;
@@ -73,7 +72,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         terminal.hide_cursor()?;
 
         let events = Events::new();
-        let mut app = App::new(dep_list_list, kind);
+        let mut app = App::new(config, kind);
         app.next();
 
         let mut search_in_next_iter: Option<String> = None;
@@ -102,7 +101,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             if let Some(term) = search_in_next_iter {
                 search_in_next_iter = None;
-                let result = search_dep(kind, &term).await;
+                let result = Config::search_deps(kind, &term).await;
                 app.remove_message();
                 match result {
                     Ok(r) => app.show_searches(r),
@@ -146,7 +145,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 Key::Down | Key::Char('j') => app.next(),
                                 Key::Up | Key::Char('k') => app.previous(),
                                 Key::Char('\n') => {
-                                    let is_installed = install_dep(kind, app.get_install_candidate(), folder);
+                                    let is_installed = Config::install_dep(kind, app.get_install_candidate(), folder);
                                     if is_installed {
                                         app.set_message("Dependency version updated!");
                                     }

@@ -1,6 +1,7 @@
 use crate::render::InstallCandidate;
 use futures::future::try_join_all;
 use humanesort::prelude::*;
+use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use toml::value::Table;
@@ -9,8 +10,9 @@ use toml_edit::{value, Document};
 
 use async_trait::async_trait;
 
-use super::Parser;
-use crate::parser::{Dep, DepList, DepListList, DepVersion, DepVersionReq, SearchDep};
+use super::{DepGroup, Parser};
+use crate::parser::{Config, Dep, SearchDep};
+use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -97,10 +99,12 @@ pub struct CargoResponse {
     versions: Vec<CargoResponseVersion>,
 }
 impl CargoResponse {
-    pub fn get_versions_list(&self) -> Vec<DepVersion> {
+    pub fn get_versions_list(&self) -> Vec<Version> {
         let mut versions = vec![];
         for ver in &self.versions {
-            versions.push(DepVersion::from(Some(ver.num.clone())))
+            if let Ok(v) = Version::parse(&ver.num) {
+                versions.push(v)
+            }
         }
         versions
     }
@@ -111,16 +115,16 @@ impl CargoResponse {
         }
         key_list.humane_sort();
 
-        let mut parsed_versions: Vec<DepVersion> = Vec::new();
-        let mut latest_semantic_version: Option<DepVersion> = None;
-        let mut latest_version: Option<DepVersion> = None;
+        let mut parsed_versions: Vec<Version> = Vec::new();
+        let mut latest_semantic_version: Option<Version> = None;
+        let mut latest_version: Option<Version> = None;
         for key in key_list {
             if let Ok(valid_version) = semver::Version::parse(&key) {
-                parsed_versions.push(DepVersion::Version(valid_version.clone()));
-                latest_version = Some(DepVersion::Version(valid_version.clone()));
-                if let DepVersionReq::Version(spec) = &dep.specified_version {
+                parsed_versions.push(valid_version.clone());
+                latest_version = Some(valid_version.clone());
+                if let Some(spec) = &dep.specified_version {
                     if spec.matches(&valid_version) {
-                        latest_semantic_version = Some(DepVersion::Version(valid_version.clone()));
+                        latest_semantic_version = Some(valid_version);
                     }
                 }
             };
@@ -131,42 +135,47 @@ impl CargoResponse {
     }
 }
 
-async fn fetch_resp(dep: &str) -> Result<CargoResponse, Box<dyn Error>> {
+// hack to get the kind for easier manipulation
+struct CargoResponseWithKind {
+    data: CargoResponse,
+    kind: String,
+}
+async fn fetch_resp(dep: String, kind: String) -> Result<CargoResponseWithKind, Box<dyn Error>> {
     let mut url = format!("https://crates.io/api/v1/crates/{}", dep);
     if let Ok(_) = env::var("MEAIN_TEST_ENV") {
         url = format!("http://localhost:8000/cargo/{}.json", dep)
     }
-    let resp = reqwest::Client::new()
+    let resp: CargoResponse = reqwest::Client::new()
         .get(&url)
         .header("User-Agent", "depman (github.com/meain/depman)")
         .send()
         .await?
         .json()
         .await?;
-    Ok(resp)
+    Ok(CargoResponseWithKind { data: resp, kind })
 }
 
-async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn Error + 'static>> {
+async fn fetch_dep_infos(config: &mut Config) -> Result<(), Box<dyn Error + 'static>> {
     let mut gets = vec![];
-    for dep_list in &dep_list_list.lists {
-        gets.extend(dep_list.deps.iter().map(|x| fetch_resp(&x.name)));
-    }
-    let results = try_join_all(gets).await?;
-
-    for dep_list in &mut dep_list_list.lists {
-        for mut dep in &mut dep_list.deps {
-            for result in &results {
-                if &result.info.name == &dep.name {
-                    dep.description = result.info.description.clone();
-                    dep.available_versions = Some(result.get_versions_list());
-                    dep.license = result.info.license.clone();
-                    dep.homepage = result.info.homepage.clone();
-                    result.inject_inportant_versions(&mut dep);
-                }
-            }
+    for (kind, group) in config.dep_groups.iter() {
+        for name in group.keys() {
+            gets.push(fetch_resp(name.to_string(), kind.to_string()));
         }
     }
 
+    let results = try_join_all(gets).await?;
+    for result in &results {
+        let mut ddep = &mut config
+            .dep_groups
+            .get_mut(&result.kind)
+            .unwrap()
+            .get_mut(&result.data.info.name)
+            .unwrap();
+        ddep.description = result.data.info.description.clone();
+        ddep.available_versions = Some(result.data.get_versions_list());
+        ddep.license = result.data.info.license.clone();
+        result.data.inject_inportant_versions(ddep);
+    }
     Ok(())
 }
 
@@ -187,14 +196,6 @@ fn toml_tabl_to_string(item: &Value) -> String {
     }
 }
 
-fn convert_dep_type_string(kind: &str) -> &str {
-    match kind {
-        "devDependencies" => "dev-dependencies",
-        "buildDependencies" => "build-dependencies",
-        _ => "dependencies",
-    }
-}
-
 // TODO: probably add description and other stuff we have for normal deps
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct CratesIOSearchCreate {
@@ -212,6 +213,10 @@ fn build_dep_entry(
     specified_version: &str,
     current_version: Option<String>,
 ) -> Dep {
+    let current_version_parsed = match current_version {
+        Some(cv) => Version::parse(&cv).ok(),
+        None => None,
+    };
     Dep {
         name: name.to_string(),
         kind: kind.to_string(),
@@ -220,64 +225,70 @@ fn build_dep_entry(
         homepage: None,
         package_repo: format!("https://crates.io/crates/{}", name),
         license: None,
-        specified_version: DepVersionReq::from(specified_version), // from config files
-        current_version: DepVersion::from(current_version),        // parsed from lockfiles
+        specified_version: VersionReq::parse(specified_version).ok(), // from config files
+        current_version: current_version_parsed,                      // parsed from lockfiles
         available_versions: None,
         latest_version: None,
         latest_semver_version: None,
     }
 }
 
-fn build_deps_array(deps: Table, lockfile: &LockFile, kind: &str) -> DepList {
-    let dep_list = deps
-        .keys()
-        .into_iter()
-        .map(|x| {
+fn build_deps_array(kind: &str, deps: Table, lockfile: &LockFile) -> DepGroup {
+    let mut dep_group: DepGroup = HashMap::new();
+    deps.keys().into_iter().for_each(|x| {
+        dep_group.insert(
+            x.to_string(),
             build_dep_entry(
                 x,
-                kind,
+                &kind,
                 &toml_tabl_to_string(&deps[x]),
                 lockfile.get_lockfile_version(x),
-            )
-        })
-        .collect();
-    DepList {
-        name: kind.to_string(),
-        deps: dep_list,
-    }
+            ),
+        );
+    });
+    dep_group
 }
 
 pub struct RustCargo;
 
 #[async_trait]
 impl Parser for RustCargo {
-    async fn parse(root: &str) -> DepListList {
-        let config = ConfigFile::from(root).expect(&format!("Unable to parse Cargo.toml"));
+    async fn parse(root: &str) -> Config {
+        let configfile = ConfigFile::from(root).expect(&format!("Unable to parse Cargo.toml"));
         let lockfile = LockFile::from(root).expect(&format!("Unable to parse Cargo.lock"));
-        let mut items = vec![];
-        if let Some(deps) = config.dependencies {
-            items.push(build_deps_array(deps, &lockfile, "dependencies"))
+        let mut dep_groups = HashMap::new();
+        if let Some(deps) = configfile.dependencies {
+            dep_groups.insert(
+                "dependencies".to_string(),
+                build_deps_array("dependencies", deps, &lockfile),
+            );
         }
-        if let Some(deps) = config.dev_dependencies {
-            items.push(build_deps_array(deps, &lockfile, "devDependencies"))
+        if let Some(deps) = configfile.dev_dependencies {
+            dep_groups.insert(
+                "dev-dependencies".to_string(),
+                build_deps_array("dev-dependencies", deps, &lockfile),
+            );
         }
-        if let Some(deps) = config.build_dependences {
-            items.push(build_deps_array(deps, &lockfile, "buildDependencies"))
+        if let Some(deps) = configfile.build_dependences {
+            dep_groups.insert(
+                "build-dependencies".to_string(),
+                build_deps_array("build-dependencies", deps, &lockfile),
+            );
         }
 
-        let mut dep_list_list = DepListList { lists: items };
-        let _ = fetch_dep_infos(&mut dep_list_list).await; // ignore error
-        dep_list_list
+        let mut config = Config { dep_groups };
+        let _ = fetch_dep_infos(&mut config).await; // ignore error
+        config
     }
 
     fn install_dep(dep: InstallCandidate, root: &str) {
         let path_string = format!("{}/Cargo.toml", root);
         let file_contents = std::fs::read_to_string(&path_string).unwrap();
         let mut doc = file_contents.parse::<Document>().expect("invalid doc");
-        if doc[convert_dep_type_string(&dep.kind)][&dep.name]["version"].is_none() {
-            doc[convert_dep_type_string(&dep.kind)][&dep.name] = value(dep.version);
+        if doc[&dep.kind][&dep.name]["version"].is_none() {
+            doc[&dep.kind][&dep.name] = value(dep.version);
         } else {
-            doc[convert_dep_type_string(&dep.kind)][&dep.name]["version"] = value(dep.version);
+            doc[&dep.kind][&dep.name]["version"] = value(dep.version);
         }
         std::fs::write(&path_string, doc.to_string()).unwrap();
     }

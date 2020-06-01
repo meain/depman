@@ -8,17 +8,30 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
-use super::Parser;
-use crate::parser::{Author, Dep, DepList, DepListList, DepVersion, DepVersionReq, SearchDep};
+use super::{Config, DepGroup, Parser};
+use crate::parser::{Author, Dep, SearchDep};
 use serde::{Deserialize, Serialize};
 
 use async_trait::async_trait;
+use semver::{Version, VersionReq};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JavascriptPackageJson {
     name: String,
     dependencies: Option<HashMap<String, String>>,
     dev_dependencies: Option<HashMap<String, String>>,
+}
+impl JavascriptPackageJson {
+    fn from(folder: &str) -> Option<JavascriptPackageJson> {
+        let path_string = format!("{}/package.json", folder);
+        let path = Path::new(&path_string);
+        let file = File::open(path).expect(&format!("Unable to read {}", &path_string));
+        let reader = BufReader::new(file);
+        match serde_json::from_reader(reader) {
+            Ok(package_json) => Some(package_json),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -30,24 +43,15 @@ pub struct JavascriptPackageJsonLockfile {
     name: String,
     dependencies: Option<HashMap<String, DepWithVersion>>,
 }
-
 impl JavascriptPackageJsonLockfile {
-    fn from(folder: &str) -> JavascriptPackageJsonLockfile {
+    fn from(folder: &str) -> Option<JavascriptPackageJsonLockfile> {
         let path_string = format!("{}/package-lock.json", folder);
         let path = Path::new(&path_string);
-        let file_maybe = File::open(path);
-        match file_maybe {
-            Ok(file) => {
-                let reader = BufReader::new(file);
-                let p = serde_json::from_reader(reader);
-                match p {
-                    Ok(package_json) => {
-                        return package_json;
-                    }
-                    _ => panic!("Cannot parse package-lock.json"),
-                }
-            }
-            _ => panic!("Cannot read package.json"),
+        let file = File::open(path).expect(&format!("Unable to read {}", &path_string));
+        let reader = BufReader::new(file);
+        match serde_json::from_reader(reader) {
+            Ok(package_json) => Some(package_json),
+            _ => None,
         }
     }
     pub fn get_lockfile_version(&self, name: &str) -> Option<String> {
@@ -58,32 +62,10 @@ impl JavascriptPackageJsonLockfile {
     }
 }
 
-impl JavascriptPackageJson {
-    fn from(folder: &str) -> JavascriptPackageJson {
-        let path_string = format!("{}/package.json", folder);
-        let path = Path::new(&path_string);
-        let file_maybe = File::open(path);
-        match file_maybe {
-            Ok(file) => {
-                let reader = BufReader::new(file);
-                let p = serde_json::from_reader(reader);
-                match p {
-                    Ok(package_json) => {
-                        return package_json;
-                    }
-                    _ => panic!("Cannot read package.json"),
-                }
-            }
-            _ => panic!("Cannot read package.json"),
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct MockVersionRight {
     version: String,
 }
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NpmResponse {
     name: String,
@@ -95,31 +77,34 @@ pub struct NpmResponse {
 }
 
 impl NpmResponse {
-    pub fn get_versions_list(&self) -> Vec<DepVersion> {
+    pub fn get_versions_list(&self) -> Vec<Version> {
         let mut versions = vec![];
-        for key in self.versions.keys() {
-            versions.push(DepVersion::from(Some(key.clone())))
+        for (_, ver) in self.versions.iter() {
+            if let Ok(v) = Version::parse(&ver.version) {
+                versions.push(v)
+            }
         }
         versions
     }
 
     pub fn inject_inportant_versions(&self, dep: &mut Dep) {
-        let mut key_list: Vec<String> = Vec::new();
-        for key in self.versions.keys() {
-            key_list.push(key.to_string());
-        }
+        let mut key_list: Vec<String> = self
+            .versions
+            .iter()
+            .map(|(_, x)| x.version.clone())
+            .collect();
         key_list.humane_sort();
 
-        let mut parsed_versions: Vec<DepVersion> = Vec::new();
-        let mut latest_semantic_version: Option<DepVersion> = None;
-        let mut latest_version: Option<DepVersion> = None;
+        let mut parsed_versions: Vec<Version> = Vec::new();
+        let mut latest_semantic_version: Option<Version> = None;
+        let mut latest_version: Option<Version> = None;
         for key in key_list {
-            if let Ok(valid_version) = semver::Version::parse(&key) {
-                parsed_versions.push(DepVersion::Version(valid_version.clone()));
-                latest_version = Some(DepVersion::Version(valid_version.clone()));
-                if let DepVersionReq::Version(spec) = &dep.specified_version {
+            if let Ok(valid_version) = Version::parse(&key) {
+                parsed_versions.push(valid_version.clone());
+                latest_version = Some(valid_version.clone());
+                if let Some(spec) = &dep.specified_version {
                     if spec.matches(&valid_version) {
-                        latest_semantic_version = Some(DepVersion::Version(valid_version.clone()));
+                        latest_semantic_version = Some(valid_version.clone());
                     }
                 }
             };
@@ -130,41 +115,44 @@ impl NpmResponse {
     }
 }
 
-async fn fetch_resp(dep: &str) -> Result<NpmResponse, Box<dyn Error>> {
+// hack to get the kind for easier manipulation
+struct ResponseWithMeta {
+    data: NpmResponse,
+    name: String,
+    kind: String,
+}
+async fn fetch_resp(dep: &str, kind: String, name: String) -> Result<ResponseWithMeta, Box<dyn Error>> {
     let mut url = format!("https://registry.npmjs.org/{}", dep);
     match env::var("MEAIN_TEST_ENV") {
         Ok(_) => url = format!("http://localhost:8000/npm/{}.json", dep),
         _ => {}
     }
     let resp = reqwest::get(&url).await?.json().await?;
-    Ok(resp)
+    Ok(ResponseWithMeta { data: resp, kind, name })
 }
 
-async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn Error + 'static>> {
+async fn fetch_dep_infos(config: &mut Config) -> Result<(), Box<dyn Error + 'static>> {
     let mut gets = vec![];
-    for dep_list in &dep_list_list.lists {
-        for dep in &dep_list.deps {
-            let get = fetch_resp(&dep.name);
-            gets.push(get);
+    for (kind, group) in config.dep_groups.iter() {
+        for name in group.keys() {
+            gets.push(fetch_resp(name, kind.to_string(), name.to_string()));
         }
     }
     let results = try_join_all(gets).await?;
-
-    for dep_list in &mut dep_list_list.lists {
-        for mut dep in &mut dep_list.deps {
-            for result in &results {
-                if &result.name == &dep.name {
-                    dep.description = result.description.clone();
-                    dep.available_versions = Some(result.get_versions_list());
-                    dep.license = result.license.clone();
-                    dep.homepage = result.homepage.clone();
-                    dep.author = result.author.clone();
-                    result.inject_inportant_versions(&mut dep);
-                }
-            }
-        }
+    for result in &results {
+        let mut dep = &mut config
+            .dep_groups
+            .get_mut(&result.kind)
+            .unwrap()
+            .get_mut(&result.name)
+            .unwrap();
+        dep.description = result.data.description.clone();
+        dep.available_versions = Some(result.data.get_versions_list());
+        dep.license = result.data.license.clone();
+        dep.homepage = result.data.homepage.clone();
+        dep.author = result.data.author.clone();
+        result.data.inject_inportant_versions(dep);
     }
-
     Ok(())
 }
 
@@ -182,66 +170,72 @@ struct NpmSearchResponse {
     objects: Vec<NpmSearchPackage>,
 }
 
+fn build_dep_entry(
+    name: &str,
+    kind: &str,
+    specified_version: &str,
+    current_version: Option<String>,
+) -> Dep {
+    let current_version_parsed = match current_version {
+        Some(cv) => Version::parse(&cv).ok(),
+        None => None,
+    };
+    Dep {
+        name: name.to_string(),
+        kind: kind.to_string(),
+        author: None,
+        description: None,
+        homepage: None,
+        package_repo: format!("https://www.npmjs.com/package/{}", name),
+        license: None,
+        specified_version: VersionReq::parse(specified_version).ok(), // from config files
+        current_version: current_version_parsed,                      // parsed from lockfiles
+        available_versions: None,
+        latest_version: None,
+        latest_semver_version: None,
+    }
+}
+
+fn build_deps_array(
+    kind: &str,
+    deps: HashMap<String, String>,
+    lockfile: &JavascriptPackageJsonLockfile,
+) -> DepGroup {
+    let mut dep_group: DepGroup = HashMap::new();
+    deps.keys().into_iter().for_each(|x| {
+        dep_group.insert(
+            x.to_string(),
+            build_dep_entry(x, &kind, &deps[x], lockfile.get_lockfile_version(x)),
+        );
+    });
+    dep_group
+}
+
 pub struct JavascriptNpm;
 
 #[async_trait]
 impl Parser for JavascriptNpm {
-    async fn parse(folder: &str) -> DepListList {
-        let config = JavascriptPackageJson::from(folder);
-        let lockfile = JavascriptPackageJsonLockfile::from(folder);
-        let mut items = vec![];
-        if let Some(deps) = config.dependencies {
-            let mut dep_list = vec![];
-            for dep in deps.keys() {
-                let dep_item = Dep {
-                    name: dep.to_string(),
-                    kind: "dependencies".to_string(),
-                    author: None,
-                    description: None,
-                    homepage: None,
-                    package_repo: format!("https://www.npmjs.com/package/{}", dep.to_string()),
-                    license: None,
-                    specified_version: DepVersionReq::from(&deps[dep]), // from config files
-                    current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
-                    available_versions: None,
-                    latest_version: None,
-                    latest_semver_version: None,
-                };
-                dep_list.push(dep_item);
-            }
-            items.push(DepList {
-                name: "dependencies".to_string(),
-                deps: dep_list,
-            })
+    async fn parse(folder: &str) -> Config {
+        let configfile = JavascriptPackageJson::from(folder).expect("Unable to read package.json");
+        let lockfile =
+            JavascriptPackageJsonLockfile::from(folder).expect("Unable to read package-lock.json");
+        let mut dep_groups = HashMap::new();
+        if let Some(deps) = configfile.dependencies {
+            dep_groups.insert(
+                "dependencies".to_string(),
+                build_deps_array("dependencies", deps, &lockfile),
+            );
         }
-        if let Some(deps) = config.dev_dependencies {
-            let mut dep_list = vec![];
-            for dep in deps.keys() {
-                let dep_item = Dep {
-                    name: dep.to_string(),
-                    kind: "devDependencies".to_string(),
-                    author: None,
-                    description: None,
-                    homepage: None,
-                    package_repo: format!("https://www.npmjs.com/package/{}", dep.to_string()),
-                    license: None,
-                    specified_version: DepVersionReq::from(&deps[dep]), // from config files
-                    current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
-                    available_versions: None,
-                    latest_version: None,
-                    latest_semver_version: None,
-                };
-                dep_list.push(dep_item);
-            }
-            items.push(DepList {
-                name: "devDependencies".to_string(),
-                deps: dep_list,
-            })
+        if let Some(deps) = configfile.dev_dependencies {
+            dep_groups.insert(
+                "devDependencies".to_string(),
+                build_deps_array("devDependencies", deps, &lockfile),
+            );
         }
 
-        let mut dep_list_list = DepListList { lists: items };
-        let _ = fetch_dep_infos(&mut dep_list_list).await; // ignore error
-        dep_list_list
+        let mut config = Config { dep_groups };
+        let _ = fetch_dep_infos(&mut config).await; // ignore error
+        config
     }
 
     fn install_dep(dep: InstallCandidate, folder: &str) {

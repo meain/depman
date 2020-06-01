@@ -8,7 +8,7 @@ use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Tex
 use std::process::Command;
 use tui::terminal::Frame;
 
-use crate::parser::{Dep, DepListList, DepVersion, SearchDep, UpgradeType, ParserKind};
+use crate::parser::{Dep, SearchDep, UpgradeType, ParserKind, Config};
 
 #[derive(Debug)]
 pub struct InstallCandidate {
@@ -18,8 +18,8 @@ pub struct InstallCandidate {
 }
 
 pub struct App {
-    _kind: ParserKind,
-    data: DepListList,
+    kind: ParserKind,
+    data: Config,
     items: StatefulList<String>,
     versions: StatefulList<String>,
     help_content_pos: u16,
@@ -34,16 +34,16 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(dep_list_list: DepListList, kind: ParserKind) -> App {
-        let dep_kinds = dep_list_list.get_dep_kinds();
-        let dep_names = dep_list_list.get_dep_names_of_kind(&dep_kinds[0]);
+    pub fn new(config: Config, kind: ParserKind) -> App {
+        let dep_kinds = config.get_dep_kinds();
+        let dep_names = config.get_dep_names_of_kind(&dep_kinds[0]);
         let mut dep_versions = vec![];
-        if let Some(dep) = dep_list_list.get_dep(&dep_names[0]) {
+        if let Some(dep) = config.get_dep(&dep_names[0]) {
             dep_versions = dep.get_version_strings();
         }
         App {
-            _kind: kind,
-            data: dep_list_list,
+            kind,
+            data: config,
             items: StatefulList::with_items(dep_names),
             versions: StatefulList::with_items(dep_versions),
             help_content_pos: 0,
@@ -412,14 +412,14 @@ impl App {
             if self.popup_shown {
                 let mut items = vec![];
                 for item in self.versions.items.iter() {
-                    if &d.current_version.to_string() == item
+                    if &d.get_current_version() == item
                         && &d.get_latest_semver_version() == item
                     {
                         items.push(Text::styled(
                             format!("{} current&latest-semver", item),
                             Style::default().fg(Color::Cyan),
                         ));
-                    } else if &d.current_version.to_string() == item {
+                    } else if &d.get_current_version() == item {
                         items.push(Text::styled(
                             format!("{} current", item),
                             Style::default().fg(Color::Cyan),
@@ -438,7 +438,7 @@ impl App {
                 let current_item = self.versions.state.selected();
                 if let Some(ci) = current_item {
                     let item = &self.versions.items[ci];
-                    if &d.current_version.to_string() == item {
+                    if &d.get_current_version() == item {
                         color = Color::Cyan;
                     } else if &d.get_latest_semver_version() == item {
                         color = Color::Green;
@@ -467,7 +467,7 @@ impl App {
     pub fn get_current_version_index(&self) -> Option<usize> {
         if let Some(d) = &self.get_current_dep() {
             for (i, item) in self.versions.items.iter().enumerate() {
-                if &d.current_version.to_string() == item {
+                if &d.get_current_version() == item {
                     return Some(i);
                 }
             }
@@ -531,8 +531,8 @@ impl App {
         if let Some(dc) = self.get_current_dep() {
             let dc_upgrade_type = dc.get_ugrade_type();
             let is_newer_available = match &dc.current_version {
-                DepVersion::Version(cv) => match &dc.latest_version {
-                    Some(DepVersion::Version(lv)) => cv < &lv,
+                Some(cv) => match &dc.latest_version {
+                    Some(lv) => cv < &lv,
                     _ => false,
                 },
                 _ => false,
@@ -544,8 +544,8 @@ impl App {
                     Some(d) => {
                         let upgrade_type = d.get_ugrade_type();
                         let is_newer_available = match &d.current_version {
-                            DepVersion::Version(cv) => match &d.latest_version {
-                                Some(DepVersion::Version(lv)) => cv < &lv,
+                            Some(cv) => match &d.latest_version {
+                                Some(lv) => cv < &lv,
                                 _ => false,
                             },
                             _ => false,
@@ -561,7 +561,7 @@ impl App {
                             format!(
                                 "{} ({} > {})  {}",
                                 d.name,
-                                d.current_version.to_string(),
+                                d.get_current_version(),
                                 d.get_latest_semver_version(),
                                 breaking_changes_string
                             ),
