@@ -165,16 +165,16 @@ async fn fetch_dep_infos(config: &mut Config) -> Result<(), Box<dyn Error + 'sta
 
     let results = try_join_all(gets).await?;
     for result in &results {
-        let mut ddep = &mut config
+        let mut dep = &mut config
             .dep_groups
             .get_mut(&result.kind)
             .unwrap()
             .get_mut(&result.data.info.name)
             .unwrap();
-        ddep.description = result.data.info.description.clone();
-        ddep.available_versions = Some(result.data.get_versions_list());
-        ddep.license = result.data.info.license.clone();
-        result.data.inject_inportant_versions(ddep);
+        dep.description = result.data.info.description.clone();
+        dep.available_versions = Some(result.data.get_versions_list());
+        dep.license = result.data.info.license.clone();
+        result.data.inject_inportant_versions(dep);
     }
     Ok(())
 }
