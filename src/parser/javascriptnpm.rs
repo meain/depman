@@ -1,15 +1,18 @@
 use crate::render::InstallCandidate;
-use std::env;
+use futures::future::try_join_all;
+use humanesort::prelude::*;
 use std::collections::HashMap;
+use std::env;
+use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use std::error::Error;
-use humanesort::prelude::*;
-use futures::future::try_join_all;
 
+use super::Parser;
+use crate::parser::{Author, Dep, DepList, DepListList, DepVersion, DepVersionReq, SearchDep};
 use serde::{Deserialize, Serialize};
-use crate::parser::{Author, Dep, DepList, DepVersion, DepVersionReq, DepListList, SearchDep};
+
+use async_trait::async_trait;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JavascriptPackageJson {
@@ -127,7 +130,6 @@ impl NpmResponse {
     }
 }
 
-
 async fn fetch_resp(dep: &str) -> Result<NpmResponse, Box<dyn Error>> {
     let mut url = format!("https://registry.npmjs.org/{}", dep);
     match env::var("MEAIN_TEST_ENV") {
@@ -166,93 +168,113 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
     Ok(())
 }
 
-pub async fn into(folder: &str) -> DepListList {
-    let config = JavascriptPackageJson::from(folder);
-    let lockfile = JavascriptPackageJsonLockfile::from(folder);
-    let mut items = vec![];
-    if let Some(deps) = config.dependencies {
-        let mut dep_list = vec![];
-        for dep in deps.keys() {
-            let dep_item = Dep {
-                name: dep.to_string(),
-                kind: "dependencies".to_string(),
-                author: None,
-                description: None,
-                homepage: None,
-                package_repo: format!("https://www.npmjs.com/package/{}", dep.to_string()),
-                license: None,
-                specified_version: DepVersionReq::from(&deps[dep]), // from config files
-                current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
-                available_versions: None,
-                latest_version: None,
-                latest_semver_version: None,
-            };
-            dep_list.push(dep_item);
-        }
-        items.push(DepList {
-            name: "dependencies".to_string(),
-            deps: dep_list,
-        })
-    }
-    if let Some(deps) = config.dev_dependencies {
-        let mut dep_list = vec![];
-        for dep in deps.keys() {
-            let dep_item = Dep {
-                name: dep.to_string(),
-                kind: "devDependencies".to_string(),
-                author: None,
-                description: None,
-                homepage: None,
-                package_repo: format!("https://www.npmjs.com/package/{}", dep.to_string()),
-                license: None,
-                specified_version: DepVersionReq::from(&deps[dep]), // from config files
-                current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
-                available_versions: None,
-                latest_version: None,
-                latest_semver_version: None,
-            };
-            dep_list.push(dep_item);
-        }
-        items.push(DepList {
-            name: "devDependencies".to_string(),
-            deps: dep_list,
-        })
-    }
-
-    let mut dep_list_list = DepListList { lists: items };
-    fetch_dep_infos(&mut dep_list_list).await;  // Error does not matter, there is nothing I can do
-    dep_list_list
-}
-
-pub fn install_dep(dep: InstallCandidate, folder: &str){
-    let path_string = format!("{}/package.json", folder);
-    let data = std::fs::read_to_string(&path_string).unwrap();
-    let mut package_json: serde_json::Value = serde_json::from_str(&data).unwrap();
-    package_json[dep.kind][dep.name] = serde_json::Value::String("^".to_string() + &dep.version);
-    std::fs::write(&path_string, serde_json::to_string_pretty(&package_json).unwrap()).unwrap();
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct NpmSearchDep {
     name: String,
-    version: String
+    version: String,
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct NpmSearchPackage {
-    package: NpmSearchDep
+    package: NpmSearchDep,
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct NpmSearchResponse {
-    objects: Vec<NpmSearchPackage>
+    objects: Vec<NpmSearchPackage>,
 }
 
-pub async fn search_deps(name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>>{
-    let url = format!("http://registry.npmjs.com/-/v1/search?text={}&size=10", name);
-    let resp: NpmSearchResponse = reqwest::Client::new().get(&url)
-        .header("User-Agent", "depman (github.com/meain/depman)").send().await?.json().await?;
-    let mut deps: Vec<SearchDep> = vec![];
-    for dep in resp.objects {
-        deps.push(SearchDep{name: dep.package.name, version: dep.package.version});
+pub struct JavascriptNpm;
+
+#[async_trait]
+impl Parser for JavascriptNpm {
+    async fn parse(folder: &str) -> DepListList {
+        let config = JavascriptPackageJson::from(folder);
+        let lockfile = JavascriptPackageJsonLockfile::from(folder);
+        let mut items = vec![];
+        if let Some(deps) = config.dependencies {
+            let mut dep_list = vec![];
+            for dep in deps.keys() {
+                let dep_item = Dep {
+                    name: dep.to_string(),
+                    kind: "dependencies".to_string(),
+                    author: None,
+                    description: None,
+                    homepage: None,
+                    package_repo: format!("https://www.npmjs.com/package/{}", dep.to_string()),
+                    license: None,
+                    specified_version: DepVersionReq::from(&deps[dep]), // from config files
+                    current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
+                    available_versions: None,
+                    latest_version: None,
+                    latest_semver_version: None,
+                };
+                dep_list.push(dep_item);
+            }
+            items.push(DepList {
+                name: "dependencies".to_string(),
+                deps: dep_list,
+            })
+        }
+        if let Some(deps) = config.dev_dependencies {
+            let mut dep_list = vec![];
+            for dep in deps.keys() {
+                let dep_item = Dep {
+                    name: dep.to_string(),
+                    kind: "devDependencies".to_string(),
+                    author: None,
+                    description: None,
+                    homepage: None,
+                    package_repo: format!("https://www.npmjs.com/package/{}", dep.to_string()),
+                    license: None,
+                    specified_version: DepVersionReq::from(&deps[dep]), // from config files
+                    current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
+                    available_versions: None,
+                    latest_version: None,
+                    latest_semver_version: None,
+                };
+                dep_list.push(dep_item);
+            }
+            items.push(DepList {
+                name: "devDependencies".to_string(),
+                deps: dep_list,
+            })
+        }
+
+        let mut dep_list_list = DepListList { lists: items };
+        let _ = fetch_dep_infos(&mut dep_list_list).await; // ignore error
+        dep_list_list
     }
-    Ok(deps)
+
+    fn install_dep(dep: InstallCandidate, folder: &str) {
+        let path_string = format!("{}/package.json", folder);
+        let data = std::fs::read_to_string(&path_string).unwrap();
+        let mut package_json: serde_json::Value = serde_json::from_str(&data).unwrap();
+        package_json[dep.kind][dep.name] =
+            serde_json::Value::String("^".to_string() + &dep.version);
+        std::fs::write(
+            &path_string,
+            serde_json::to_string_pretty(&package_json).unwrap(),
+        )
+        .unwrap();
+    }
+    async fn search_deps(name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>> {
+        let url = format!(
+            "http://registry.npmjs.com/-/v1/search?text={}&size=10",
+            name
+        );
+        let resp: NpmSearchResponse = reqwest::Client::new()
+            .get(&url)
+            .header("User-Agent", "depman (github.com/meain/depman)")
+            .send()
+            .await?
+            .json()
+            .await?;
+        let mut deps: Vec<SearchDep> = vec![];
+        for dep in resp.objects {
+            deps.push(SearchDep {
+                name: dep.package.name,
+                version: dep.package.version,
+            });
+        }
+        Ok(deps)
+    }
 }
