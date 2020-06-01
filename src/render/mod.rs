@@ -63,14 +63,37 @@ impl App {
     }
 
     pub fn get_state(&self) -> AppState {
+        let dep = match self.items.state.selected() {
+            Some(m) => match m {
+                0 => {
+                    if self.items.items.len() == 0 {
+                        None
+                    } else {
+                        Some(0)
+                    }
+                }
+                m => Some(m - 1),
+            },
+            None => None,
+        };
         AppState {
             tab: self.tabs.index,
-            dep: self.items.state.selected(),
+            dep,
         }
     }
     pub fn set_state(&mut self, state: AppState) {
         self.tabs.index = state.tab;
+        let dep_names = self
+            .data
+            .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
+        self.items = StatefulList::with_items(dep_names);
         self.items.state.select(state.dep);
+        let mut dep_versions = vec![];
+        if let Some(dep) = self.get_current_dep() {
+            dep_versions = dep.get_version_strings();
+        }
+        self.versions = StatefulList::with_items(dep_versions);
+        self.versions.state.select(self.get_current_version_index());
     }
 
     pub fn get_current_dep(&self) -> Option<Dep> {
