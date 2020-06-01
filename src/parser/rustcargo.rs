@@ -306,7 +306,7 @@ impl Parser for RustCargo {
 
     async fn search_deps(name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>> {
         let url = format!(
-            "https://crates.io/api/v1/crates?page=1&per_page=10&q={}",
+            "https://crates.io/api/v1/crates?page=1&per_page=20&q={}",
             name
         );
         let resp: CratesIOSearchResp = reqwest::Client::new()

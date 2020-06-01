@@ -279,7 +279,7 @@ impl Parser for JavascriptNpm {
     }
     async fn search_deps(name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>> {
         let url = format!(
-            "http://registry.npmjs.com/-/v1/search?text={}&size=10",
+            "http://registry.npmjs.com/-/v1/search?text={}&size=20",
             name
         );
         let resp: NpmSearchResponse = reqwest::Client::new()

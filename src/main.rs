@@ -120,10 +120,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         true => match input {
                             Key::Char('\n') => {
                                 events.enable_exit_key();
-                                app.search_string = "".to_string();
                                 app.search_input_mode = false;
-                                app.set_message("Searching...");
+                                app.set_message(&format!("Searching {}...", &app.search_string));
                                 search_in_next_iter = Some(app.search_string.to_string());
+                                app.search_string = "".to_string();
                             }
                             Key::Char(_) | Key::Backspace => app.search_update(input),
                             Key::Esc => {
