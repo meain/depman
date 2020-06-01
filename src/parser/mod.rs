@@ -5,6 +5,16 @@ use crate::render::InstallCandidate;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 
+use async_trait::async_trait;
+use rustcargotoml::RustCargo;
+
+#[async_trait]
+pub trait Parser {
+    async fn parse(root: &str) -> DepListList;
+    fn install_dep(dep: InstallCandidate, root: &str);
+    async fn search_deps(name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>>;
+}
+
 #[derive(Copy, Clone)]
 pub enum ParserKind {
     RustCargo,
@@ -252,7 +262,7 @@ impl DepListList {
     pub async fn new(folder: &str, kind: ParserKind) -> DepListList {
         match kind {
             ParserKind::JavascriptNpm => jspackagejson::into(folder).await,
-            ParserKind::RustCargo => rustcargotoml::into(folder).await,
+            ParserKind::RustCargo => RustCargo::parse(folder).await,
         }
     }
 }
@@ -264,7 +274,7 @@ pub fn install_dep(kind: ParserKind, dep: Option<InstallCandidate>, folder: &str
         }
         Some(d) => match kind {
             ParserKind::JavascriptNpm => jspackagejson::install_dep(d, folder),
-            ParserKind::RustCargo => rustcargotoml::install_dep(d, folder),
+            ParserKind::RustCargo => RustCargo::install_dep(d, folder),
         },
     }
     true
@@ -273,6 +283,6 @@ pub fn install_dep(kind: ParserKind, dep: Option<InstallCandidate>, folder: &str
 pub async fn search_dep(kind: ParserKind, name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>> {
     match kind {
         ParserKind::JavascriptNpm => Ok(jspackagejson::search_deps(name).await?),
-        ParserKind::RustCargo => Ok(rustcargotoml::search_deps(name).await?),
+        ParserKind::RustCargo => Ok(RustCargo::search_deps(name).await?),
     }
 }

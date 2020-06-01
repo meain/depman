@@ -1,18 +1,21 @@
 use crate::render::InstallCandidate;
+use futures::future::try_join_all;
+use humanesort::prelude::*;
 use std::env;
 use std::error::Error;
-use humanesort::prelude::*;
-use futures::future::try_join_all;
-use toml::Value;
 use toml::value::Table;
-use toml_edit::{Document, value};
+use toml::Value;
+use toml_edit::{value, Document};
 
+use async_trait::async_trait;
+
+use super::Parser;
+use crate::parser::{Dep, DepList, DepListList, DepVersion, DepVersionReq, SearchDep};
 use serde::{Deserialize, Serialize};
-use crate::parser::{Dep, DepList, DepVersion, DepVersionReq, DepListList, SearchDep};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-struct RutVersionObjectContent{
-    version: String
+struct RutVersionObjectContent {
+    version: String,
 }
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 enum RustVersionObject {
@@ -20,20 +23,10 @@ enum RustVersionObject {
     Object(RutVersionObjectContent),
 }
 
-impl RustVersionObject {
-    pub fn _to_string(&self) -> String {
-        match self {
-            RustVersionObject::Simple(s) => s.to_string(),
-            RustVersionObject::Object(o) => o.version.to_string()
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 struct ConfigFilePackage {
-    name: String
+    name: String,
 }
-
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ConfigFile {
@@ -56,25 +49,19 @@ pub struct LockFile {
 }
 
 impl LockFile {
-    fn from(folder: &str) -> LockFile {
-        let path_string = format!("{}/Cargo.lock", folder);
-        let text_maybe = std::fs::read_to_string(path_string);
-        match text_maybe {
-            Ok(text) => {
-                let p = toml::from_str(&text);
-                match p {
-                    Ok(package_json) => {
-                        return package_json;
-                    }
-                    _ => panic!("Cannot parse Cargo.lock"),
-                }
-            }
-            _ => panic!("Cannot read Cargo.lock"),
+    fn from(root: &str) -> Option<LockFile> {
+        let path_string = format!("{}/Cargo.lock", root);
+        let text = std::fs::read_to_string(&path_string)
+            .expect(&format!("Unable to read {}", &path_string));
+        let parsed = toml::from_str(&text);
+        match parsed {
+            Ok(package_json) => Some(package_json),
+            _ => None,
         }
     }
     pub fn get_lockfile_version(&self, name: &str) -> Option<String> {
         for package in &self.package {
-            if name == package.name{
+            if name == package.name {
                 return Some(package.version.clone());
             }
         }
@@ -83,20 +70,14 @@ impl LockFile {
 }
 
 impl ConfigFile {
-    fn from(folder: &str) -> ConfigFile {
-        let path_string = format!("{}/Cargo.toml", folder);
-        let text_maybe = std::fs::read_to_string(path_string);
-        match text_maybe {
-            Ok(text) => {
-                let p = toml::from_str(&text);
-                match p {
-                    Ok(package_json) => {
-                        return package_json;
-                    }
-                    _ => panic!("Cannot parse Cargo.toml"),
-                }
-            }
-            _ => panic!("Cannot read Cargo.toml"),
+    fn from(root: &str) -> Option<ConfigFile> {
+        let path_string = format!("{}/Cargo.toml", root);
+        let text = std::fs::read_to_string(&path_string)
+            .expect(&format!("Unable to read {}", &path_string));
+        let p = toml::from_str(&text);
+        match p {
+            Ok(package_json) => Some(package_json),
+            _ => None,
         }
     }
 }
@@ -105,13 +86,13 @@ impl ConfigFile {
 struct CargoResponseCrate {
     name: String,
     description: Option<String>,
-    license: Option<String>,  // TODO: license is version specific
+    license: Option<String>, // TODO: license is version specific
     homepage: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct CargoResponseVersion {
-    num: String
+    num: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -157,15 +138,19 @@ impl CargoResponse {
     }
 }
 
-
 async fn fetch_resp(dep: &str) -> Result<CargoResponse, Box<dyn Error>> {
     let mut url = format!("https://crates.io/api/v1/crates/{}", dep);
     match env::var("MEAIN_TEST_ENV") {
         Ok(_) => url = format!("http://localhost:8000/cargo/{}.json", dep),
         _ => {}
     }
-    let resp = reqwest::Client::new().get(&url)
-        .header("User-Agent", "depman (github.com/meain/depman)").send().await?.json().await?;
+    let resp = reqwest::Client::new()
+        .get(&url)
+        .header("User-Agent", "depman (github.com/meain/depman)")
+        .send()
+        .await?
+        .json()
+        .await?;
     Ok(resp)
 }
 
@@ -199,144 +184,135 @@ async fn fetch_dep_infos(dep_list_list: &mut DepListList) -> Result<(), Box<dyn 
 
 fn toml_tabl_to_string(item: &Value) -> String {
     // TODO: make this better
-    match item.as_str(){
+    match item.as_str() {
         Some(s) => s.to_string(),
-        None => {
-            match item.as_table() {
-                Some(t) => {
-                    let tv = &t["version"];
-                    match tv.as_str(){
-                        Some(s) => s.to_string(),
-                        None => "<invalid>".to_string()
-                    }
-                },
-                None => "<invalid>".to_string()
+        None => match item.as_table() {
+            Some(t) => {
+                let tv = &t["version"];
+                match tv.as_str() {
+                    Some(s) => s.to_string(),
+                    None => "<invalid>".to_string(),
+                }
             }
-        }
+            None => "<invalid>".to_string(),
+        },
     }
-}
-
-pub async fn into(folder: &str) -> DepListList {
-    let config = ConfigFile::from(folder);
-    let lockfile = LockFile::from(folder);
-    let mut items = vec![];
-    if let Some(deps) = config.dependencies {
-        let mut dep_list = vec![];
-        for dep in deps.keys() {
-            let dep_item = Dep {
-                name: dep.to_string(),
-                kind: "dependencies".to_string(),
-                author: None,
-                description: None,
-                homepage: None,
-                package_repo: format!("https://crates.io/crates/{}", dep.to_string()),
-                license: None,
-                specified_version: DepVersionReq::from(&toml_tabl_to_string(&deps[dep])), // from config files
-                current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
-                available_versions: None,
-                latest_version: None,
-                latest_semver_version: None,
-            };
-            dep_list.push(dep_item);
-        }
-        items.push(DepList {
-            name: "dependencies".to_string(),
-            deps: dep_list,
-        })
-    }
-    if let Some(deps) = config.dev_dependencies {
-        let mut dep_list = vec![];
-        for dep in deps.keys() {
-            let dep_item = Dep {
-                name: dep.to_string(),
-                kind: "devDependencies".to_string(),
-                author: None,
-                description: None,
-                homepage: None,
-                package_repo: format!("https://crates.io/crates/{}", dep.to_string()),
-                license: None,
-                specified_version: DepVersionReq::from(&deps[dep].to_string()), // from config files
-                current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
-                available_versions: None,
-                latest_version: None,
-                latest_semver_version: None,
-            };
-            dep_list.push(dep_item);
-        }
-        items.push(DepList {
-            name: "devDependencies".to_string(),
-            deps: dep_list,
-        })
-    }
-
-    if let Some(deps) = config.build_dependences {
-        let mut dep_list = vec![];
-        for dep in deps.keys() {
-            let dep_item = Dep {
-                name: dep.to_string(),
-                kind: "buildDependencies".to_string(),
-                author: None,
-                description: None,
-                homepage: None,
-                package_repo: format!("https://crates.io/crates/{}", dep.to_string()),
-                license: None,
-                specified_version: DepVersionReq::from(&deps[dep].to_string()), // from config files
-                current_version: DepVersion::from(lockfile.get_lockfile_version(dep)), // parsed from lockfiles
-                available_versions: None,
-                latest_version: None,
-                latest_semver_version: None,
-            };
-            dep_list.push(dep_item);
-        }
-        items.push(DepList {
-            name: "buildDependencies".to_string(),
-            deps: dep_list,
-        })
-    }
-
-    let mut dep_list_list = DepListList { lists: items };
-    fetch_dep_infos(&mut dep_list_list).await;  // Error does not matter, there is nothing I can do
-    dep_list_list
 }
 
 fn convert_dep_type_string(kind: &str) -> &str {
     match kind {
         "devDependencies" => "dev-dependencies",
         "buildDependencies" => "build-dependencies",
-        _ => "dependencies"
+        _ => "dependencies",
     }
-}
-
-pub fn install_dep(dep: InstallCandidate, folder: &str){
-    let path_string = format!("{}/Cargo.toml", folder);
-    let file_contents = std::fs::read_to_string(&path_string).unwrap();
-    let mut doc = file_contents.parse::<Document>().expect("invalid doc");
-    if doc[convert_dep_type_string(&dep.kind)][&dep.name]["version"].is_none() {
-        doc[convert_dep_type_string(&dep.kind)][&dep.name] = value(dep.version);
-    } else {
-        doc[convert_dep_type_string(&dep.kind)][&dep.name]["version"] = value(dep.version);
-    }
-    std::fs::write(&path_string, doc.to_string()).unwrap();
 }
 
 // TODO: probably add description and other stuff we have for normal deps
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct CratesIOSearchCreate {
     name: String,
-    newest_version: String
+    newest_version: String,
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct CratesIOSearchResp {
-    crates: Vec<CratesIOSearchCreate>
+    crates: Vec<CratesIOSearchCreate>,
 }
 
-pub async fn search_deps(name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>> {
-    let url = format!("https://crates.io/api/v1/crates?page=1&per_page=10&q={}", name);
-    let resp: CratesIOSearchResp = reqwest::Client::new().get(&url)
-        .header("User-Agent", "depman (github.com/meain/depman)").send().await?.json().await?;
-    let mut deps: Vec<SearchDep> = vec![];
-    for dep in resp.crates {
-        deps.push(SearchDep{name: dep.name, version: dep.newest_version});
+fn build_dep_entry(
+    name: &str,
+    kind: &str,
+    specified_version: &str,
+    current_version: Option<String>,
+) -> Dep {
+    Dep {
+        name: name.to_string(),
+        kind: kind.to_string(),
+        author: None,
+        description: None,
+        homepage: None,
+        package_repo: format!("https://crates.io/crates/{}", name),
+        license: None,
+        specified_version: DepVersionReq::from(specified_version), // from config files
+        current_version: DepVersion::from(current_version),        // parsed from lockfiles
+        available_versions: None,
+        latest_version: None,
+        latest_semver_version: None,
     }
-    Ok(deps)
+}
+
+fn build_deps_array(deps: Table, lockfile: &LockFile, kind: &str) -> DepList {
+    let dep_list = deps
+        .keys()
+        .into_iter()
+        .map(|x| {
+            build_dep_entry(
+                x,
+                kind,
+                &toml_tabl_to_string(&deps[x]),
+                lockfile.get_lockfile_version(x),
+            )
+        })
+        .collect();
+    DepList {
+        name: kind.to_string(),
+        deps: dep_list,
+    }
+}
+
+pub struct RustCargo;
+
+#[async_trait]
+impl Parser for RustCargo {
+    async fn parse(root: &str) -> DepListList {
+        let config = ConfigFile::from(root).expect(&format!("Unable to parse Cargo.toml"));
+        let lockfile = LockFile::from(root).expect(&format!("Unable to parse Cargo.lock"));
+        let mut items = vec![];
+        if let Some(deps) = config.dependencies {
+            items.push(build_deps_array(deps, &lockfile, "dependencies"))
+        }
+        if let Some(deps) = config.dev_dependencies {
+            items.push(build_deps_array(deps, &lockfile, "devDependencies"))
+        }
+        if let Some(deps) = config.build_dependences {
+            items.push(build_deps_array(deps, &lockfile, "buildDependencies"))
+        }
+
+        let mut dep_list_list = DepListList { lists: items };
+        let _ = fetch_dep_infos(&mut dep_list_list).await;  // ignore error
+        dep_list_list
+    }
+
+    fn install_dep(dep: InstallCandidate, root: &str) {
+        let path_string = format!("{}/Cargo.toml", root);
+        let file_contents = std::fs::read_to_string(&path_string).unwrap();
+        let mut doc = file_contents.parse::<Document>().expect("invalid doc");
+        if doc[convert_dep_type_string(&dep.kind)][&dep.name]["version"].is_none() {
+            doc[convert_dep_type_string(&dep.kind)][&dep.name] = value(dep.version);
+        } else {
+            doc[convert_dep_type_string(&dep.kind)][&dep.name]["version"] = value(dep.version);
+        }
+        std::fs::write(&path_string, doc.to_string()).unwrap();
+    }
+
+    async fn search_deps(name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>> {
+        let url = format!(
+            "https://crates.io/api/v1/crates?page=1&per_page=10&q={}",
+            name
+        );
+        let resp: CratesIOSearchResp = reqwest::Client::new()
+            .get(&url)
+            .header("User-Agent", "depman (github.com/meain/depman)")
+            .send()
+            .await?
+            .json()
+            .await?;
+        Ok(resp
+            .crates
+            .into_iter()
+            .map(|x| SearchDep {
+                name: x.name,
+                version: x.newest_version,
+            })
+            .collect())
+    }
 }
