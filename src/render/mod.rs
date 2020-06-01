@@ -8,7 +8,7 @@ use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Tex
 use std::process::Command;
 use tui::terminal::Frame;
 
-use crate::parser::{Dep, SearchDep, UpgradeType, Config, ParserKind};
+use crate::parser::{Config, Dep, ParserKind, SearchDep, UpgradeType};
 
 #[derive(Debug)]
 pub struct InstallCandidate {
@@ -17,6 +17,10 @@ pub struct InstallCandidate {
     pub kind: String,
 }
 
+pub struct AppState {
+    tab: usize,
+    dep: Option<usize>,
+}
 pub struct App {
     pub kind: ParserKind,
     data: Config,
@@ -56,6 +60,17 @@ impl App {
             search_string: "".to_string(),
             search_input_mode: false,
         }
+    }
+
+    pub fn get_state(&self) -> AppState {
+        AppState {
+            tab: self.tabs.index,
+            dep: self.items.state.selected(),
+        }
+    }
+    pub fn set_state(&mut self, state: AppState) {
+        self.tabs.index = state.tab;
+        self.items.state.select(state.dep);
     }
 
     pub fn get_current_dep(&self) -> Option<Dep> {
@@ -414,9 +429,7 @@ impl App {
             if self.popup_shown {
                 let mut items = vec![];
                 for item in self.versions.items.iter() {
-                    if &d.get_current_version() == item
-                        && &d.get_latest_semver_version() == item
-                    {
+                    if &d.get_current_version() == item && &d.get_latest_semver_version() == item {
                         items.push(Text::styled(
                             format!("{} current&latest-semver", item),
                             Style::default().fg(Color::Cyan),

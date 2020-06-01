@@ -76,8 +76,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         loop {
             if reload {
                 let config = Config::new(folder, kind).await;
+                let state = app.get_state();
                 app = App::new(config, kind);
-                app.next();
+                app.set_state(state);
                 reload = false;
                 continue;
             }
