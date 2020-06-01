@@ -66,7 +66,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let mut terminal = Terminal::new(backend)?;
         terminal.hide_cursor()?;
 
-        let events = Events::new();
+        let mut events = Events::new();
         let mut app = App::new(config);
         app.next();
 
@@ -117,12 +117,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     match app.search_input_mode {
                         true => match input {
                             Key::Char('\n') => {
+                                events.enable_exit_key();
+                                app.search_string = "".to_string();
                                 app.search_input_mode = false;
                                 app.set_message("Searching...");
                                 search_in_next_iter = Some(app.search_string.to_string());
                             }
                             Key::Char(_) | Key::Backspace => app.search_update(input),
                             Key::Esc => {
+                                events.enable_exit_key();
                                 app.search_string = "".to_string();
                                 app.search_input_mode = false;
                             }
@@ -136,7 +139,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 drop(terminal);
                                 std::process::exit(0);
                             }
-                            Key::Char('s') => app.search_input_mode = true,
+                            Key::Char('s') => {
+                                events.disable_exit_key();
+                                app.search_input_mode = true
+                            }
                             Key::Char('o') => app.open_homepage(),
                             Key::Char('p') => app.open_package_repo(),
                             Key::Char('?') => app.toggle_help_menu(), // h is for next tab
