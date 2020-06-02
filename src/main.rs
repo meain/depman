@@ -3,7 +3,7 @@ mod parser;
 mod render;
 
 use crate::events::event::{Event, Events};
-use render::App;
+use render::{PopupKind, App};
 
 use std::error::Error;
 use std::path::Path;
@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let config = Config::new(folder, kind).await;
                 let state = app.get_state();
                 app = App::new(config, kind);
-                app.set_state(state);
+                app.set_state(state);  // TODO: will have to inject fetched result back in
                 reload = false;
                 continue;
             }
@@ -116,24 +116,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             match events.next()? {
                 Event::Input(input) => {
-                    match app.search_input_mode {
-                        true => match input {
+                    match app.popup {
+                        PopupKind::SearchInput => match input {
                             Key::Char('\n') => {
                                 events.enable_exit_key();
-                                app.search_input_mode = false;
                                 app.set_message(&format!("Searching {}...", &app.search_string));
+                                app.popup = PopupKind::Message;
                                 search_in_next_iter = Some(app.search_string.to_string());
-                                app.search_string = "".to_string();
                             }
                             Key::Char(_) | Key::Backspace => app.search_update(input),
                             Key::Esc => {
                                 events.enable_exit_key();
                                 app.search_string = "".to_string();
-                                app.search_input_mode = false;
+                                app.popup = PopupKind::None;
                             }
                             _ => {}
                         },
-                        false => match input {
+                        _ => match input {
                             Key::Char('q') => {
                                 break;
                             }
@@ -143,7 +142,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             }
                             Key::Char('s') => {
                                 events.disable_exit_key();
-                                app.search_input_mode = true
+                                app.popup = PopupKind::SearchInput;
                             }
                             Key::Char('D') => {
                                 let status = Config::delete_dep(app.get_current_dep(), app.kind, folder);
@@ -156,11 +155,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             Key::Char('p') => app.open_package_repo(),
                             Key::Char('?') => app.toggle_help_menu(), // h is for next tab
                             Key::Esc => {
-                                app.hide_popup();
-                                app.remove_message();
-                                app.show_searches = false;
+                                app.unwrap_popup();
                             }
-                            Key::Char('v') | Key::Char(' ') => app.toggle_popup(),
+                            Key::Char('v') | Key::Char(' ') => app.toggle_versions_menu(),
                             Key::Left | Key::Char('h') => app.tab_previous(),
                             Key::Right | Key::Char('l') => app.tab_next(),
                             Key::Down | Key::Char('j') => app.next(),
@@ -169,7 +166,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 let is_installed =
                                     Config::install_dep(kind, app.get_install_candidate(), folder);
                                 if is_installed {
-                                    app.set_message("Dependency version updated!");
+                                    app.set_message("Dependency updated!");
+                                    reload = true;
+                                } else {
+                                    app.set_message("Update failed.");
                                     reload = true;
                                 }
                             }

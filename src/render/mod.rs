@@ -21,20 +21,26 @@ pub struct AppState {
     tab: usize,
     dep: Option<usize>,
 }
+#[derive(Debug)]
+pub enum PopupKind {
+    Message,
+    Help,
+    Versions,
+    SearchInput,
+    SearchList,
+    None,
+}
 pub struct App {
     pub kind: ParserKind,
     data: Config,
+    tabs: TabsState,
     items: StatefulList<String>,
     versions: StatefulList<String>,
+    pub popup: PopupKind,
     help_content_pos: u16,
-    tabs: TabsState,
-    popup_shown: bool,
-    help_menu_shown: bool,
     message: Option<String>,
-    pub search_result: StatefulList<SearchDep>,
-    pub show_searches: bool,
     pub search_string: String,
-    pub search_input_mode: bool,
+    pub search_result: StatefulList<SearchDep>,
 }
 
 impl App {
@@ -50,17 +56,14 @@ impl App {
         App {
             kind,
             data: config,
+            tabs: TabsState::new(dep_kinds),
             items: StatefulList::with_items(dep_names),
             versions: StatefulList::with_items(dep_versions),
-            help_content_pos: 0,
-            tabs: TabsState::new(dep_kinds),
-            popup_shown: false,
-            help_menu_shown: false,
             message: None,
-            show_searches: false,
+            popup: PopupKind::None,
+            help_content_pos: 0,
             search_result: StatefulList::with_items(vec![]),
             search_string: "".to_string(),
-            search_input_mode: false,
         }
     }
 
@@ -137,32 +140,41 @@ impl App {
         }
     }
 
-    pub fn hide_popup(&mut self) {
-        self.popup_shown = false;
-        self.help_menu_shown = false;
+    pub fn unwrap_popup(&mut self) {
+        self.popup = match self.popup {
+            PopupKind::SearchList => PopupKind::SearchInput,
+            PopupKind::SearchInput => PopupKind::None,
+            PopupKind::Help => PopupKind::None,
+            PopupKind::Versions => PopupKind::None,
+            PopupKind::Message => {
+                if self.search_string.len() > 0 {
+                    PopupKind::SearchInput
+                } else {
+                    PopupKind::None
+                }
+            }
+            PopupKind::None => PopupKind::None,
+        };
     }
-    pub fn toggle_popup(&mut self) {
-        if let Some(_) = self.message {
-            return;
-        }
-        if !self.is_versions_available() {
-            self.message = Some("No versions available".to_string());
-            return;
-        }
-        if self.popup_shown {
-            self.popup_shown = false
-        } else if !self.help_menu_shown {
-            self.popup_shown = true
+    pub fn toggle_versions_menu(&mut self) {
+        if let PopupKind::None = self.popup {
+            if !self.is_versions_available() {
+                self.message = Some("No versions available".to_string());
+                self.popup = PopupKind::Message;
+                return;
+            }
+            self.popup = PopupKind::Versions;
         }
     }
     pub fn toggle_help_menu(&mut self) {
-        if let Some(_) = self.message {
-            return;
-        }
-        if self.help_menu_shown {
-            self.help_menu_shown = false
-        } else if !self.popup_shown {
-            self.help_menu_shown = true
+        match self.popup {
+            PopupKind::None => {
+                self.popup = PopupKind::Help;
+            }
+            PopupKind::Help => {
+                self.popup = PopupKind::None;
+            }
+            _ => {}
         }
     }
 
@@ -201,7 +213,7 @@ impl App {
     }
 
     pub fn top(&mut self) {
-        if self.popup_shown {
+        if let PopupKind::Versions = self.popup {
             self.versions.first();
             self.versions.next()
         } else {
@@ -216,7 +228,7 @@ impl App {
     }
 
     pub fn bottom(&mut self) {
-        if self.popup_shown {
+        if let PopupKind::Versions = self.popup {
             self.versions.last();
         } else {
             self.items.last();
@@ -230,66 +242,70 @@ impl App {
     }
 
     pub fn next(&mut self) {
-        if self.popup_shown {
-            self.versions.next();
-        } else if self.help_menu_shown {
-            self.help_content_pos += 1;
-        } else if self.show_searches {
-            self.search_result.next();
-        } else {
-            self.items.next();
-            let mut dep_versions = vec![];
-            if let Some(dep) = self.get_current_dep() {
-                dep_versions = dep.get_version_strings();
+        match self.popup {
+            PopupKind::Versions => self.versions.next(),
+            PopupKind::Help => self.help_content_pos += 1,
+            PopupKind::SearchList => self.search_result.next(),
+            _ => {
+                self.items.next();
+                let mut dep_versions = vec![];
+                if let Some(dep) = self.get_current_dep() {
+                    dep_versions = dep.get_version_strings();
+                }
+                self.versions = StatefulList::with_items(dep_versions);
+                self.versions.state.select(self.get_current_version_index());
             }
-            self.versions = StatefulList::with_items(dep_versions);
-            self.versions.state.select(self.get_current_version_index());
         }
     }
 
     pub fn previous(&mut self) {
-        if self.popup_shown {
-            self.versions.previous();
-        } else if self.help_menu_shown {
-            if self.help_content_pos > 0 {
-                self.help_content_pos -= 1;
+        match self.popup {
+            PopupKind::Versions => self.versions.previous(),
+            PopupKind::Help => {
+                if self.help_content_pos > 0 {
+                    self.help_content_pos -= 1;
+                }
             }
-        } else if self.show_searches {
-            self.search_result.previous();
-        } else {
-            self.items.previous();
-            let mut dep_versions = vec![];
-            if let Some(dep) = self.get_current_dep() {
-                dep_versions = dep.get_version_strings();
+            PopupKind::SearchList => self.search_result.previous(),
+            _ => {
+                self.items.previous();
+                let mut dep_versions = vec![];
+                if let Some(dep) = self.get_current_dep() {
+                    dep_versions = dep.get_version_strings();
+                }
+                self.versions = StatefulList::with_items(dep_versions);
+                self.versions.state.select(self.get_current_version_index());
             }
-            self.versions = StatefulList::with_items(dep_versions);
-            self.versions.state.select(self.get_current_version_index());
         }
     }
 
     pub fn get_install_candidate(&mut self) -> Option<InstallCandidate> {
-        if self.popup_shown {
-            let current_dep = self.get_current_dep().unwrap();
-            let version_string = self.get_selected_version();
-            return Some(InstallCandidate {
-                name: current_dep.name,
-                version: version_string,
-                kind: self.tabs.titles[self.tabs.index].to_string(),
-            });
-        } else if self.show_searches {
-            let search_dep =
-                self.search_result.items[self.search_result.state.selected().unwrap()].clone();
-            return Some(InstallCandidate {
-                name: search_dep.name,
-                version: search_dep.version,
-                kind: self.tabs.titles[self.tabs.index].to_string(),
-            });
+        match self.popup {
+            PopupKind::Versions => {
+                let current_dep = self.get_current_dep().unwrap();
+                let version_string = self.get_selected_version();
+                Some(InstallCandidate {
+                    name: current_dep.name,
+                    version: version_string,
+                    kind: self.tabs.titles[self.tabs.index].to_string(),
+                })
+            }
+            PopupKind::SearchList => {
+                let search_dep =
+                    self.search_result.items[self.search_result.state.selected().unwrap()].clone();
+                Some(InstallCandidate {
+                    name: search_dep.name,
+                    version: search_dep.version,
+                    kind: self.tabs.titles[self.tabs.index].to_string(),
+                })
+            }
+            _ => None,
         }
-        None
     }
 
     pub fn set_message(&mut self, message: &str) {
         self.message = Some(message.to_string());
+        self.popup = PopupKind::Message;
     }
 
     pub fn remove_message(&mut self) {
@@ -305,10 +321,7 @@ impl App {
     }
 
     pub fn show_searches(&mut self, r: Vec<SearchDep>) {
-        self.popup_shown = false;
-        self.message = None;
-        self.help_menu_shown = false;
-        self.show_searches = true;
+        self.popup = PopupKind::SearchList;
         self.search_result = StatefulList::with_items(r);
         self.search_result.next();
     }
@@ -326,7 +339,7 @@ impl App {
     }
 
     pub fn display_search_input<B: Backend>(&mut self, f: &mut Frame<B>) {
-        if self.search_input_mode {
+        if let PopupKind::SearchInput = self.popup {
             let text = vec![Text::raw(&self.search_string)];
             let block = Paragraph::new(text.iter())
                 .block(
@@ -347,29 +360,29 @@ impl App {
     }
 
     pub fn display_message<B: Backend>(&mut self, f: &mut Frame<B>) {
-        if let Some(message) = &self.message {
-            self.popup_shown = false; // remove that version popup
-            self.show_searches = false;
-            let text = vec![Text::raw(message)];
-            let block = Paragraph::new(text.iter())
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .border_type(BorderType::Rounded)
-                        .border_style(Style::default().fg(Color::White)),
-                )
-                .style(Style::default())
-                .alignment(Alignment::Left)
-                .scroll(self.help_content_pos)
-                .wrap(true);
-            let area = centered_rect_absolute(50, 3, f.size());
-            f.render_widget(Clear, area); //this clears out the background
-            f.render_widget(block, area);
+        if let PopupKind::Message = self.popup {
+            if let Some(message) = &self.message {
+                let text = vec![Text::raw(message)];
+                let block = Paragraph::new(text.iter())
+                    .block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .border_type(BorderType::Rounded)
+                            .border_style(Style::default().fg(Color::White)),
+                    )
+                    .style(Style::default())
+                    .alignment(Alignment::Left)
+                    .scroll(self.help_content_pos)
+                    .wrap(true);
+                let area = centered_rect_absolute(50, 3, f.size());
+                f.render_widget(Clear, area); //this clears out the background
+                f.render_widget(block, area);
+            }
         }
     }
 
     pub fn render_help_menu<B: Backend>(&mut self, f: &mut Frame<B>) {
-        if self.help_menu_shown {
+        if let PopupKind::Help = self.popup {
             let help_items = [
                 ["?", "show help menu"],
                 ["j/down", "move down"],
@@ -429,7 +442,7 @@ impl App {
     }
 
     pub fn render_search_results<B: Backend>(&mut self, f: &mut Frame<B>) {
-        if self.show_searches {
+        if let PopupKind::SearchList = self.popup {
             let mut results = vec![];
             for item in &self.search_result.items {
                 results.push(Text::raw(format!("{} {}", item.name, item.version)))
@@ -454,7 +467,7 @@ impl App {
 
     pub fn render_version_selector<B: Backend>(&mut self, f: &mut Frame<B>) {
         if let Some(d) = self.get_current_dep() {
-            if self.popup_shown {
+            if let PopupKind::Versions = self.popup {
                 let mut items = vec![];
                 for item in self.versions.items.iter() {
                     if &d.get_current_version() == item && &d.get_latest_semver_version() == item {
