@@ -9,7 +9,7 @@ use std::process::Command;
 use tui::terminal::Frame;
 
 use crate::parser::determinekind::ParserKind;
-use crate::parser::{Project, UpgradeType};
+use crate::parser::{Project, UpgradeType, stringify};
 
 #[derive(Debug)]
 pub struct InstallCandidate {
@@ -567,15 +567,15 @@ impl App {
                 Text::styled("Latest Version", Style::default().fg(Color::Blue)),
                 Text::raw(format!(" {}\n", self.project.get_latest_version(&d))),
                 Text::styled("Author", Style::default().fg(Color::Green)),
-                Text::raw(format!(" {}\n", self.project.get_author(&d))),
-                // Text::styled("Homepage", Style::default().fg(Color::Magenta)),
-                // Text::raw(format!(" {}\n", &d.get_homepage())),
-                // Text::styled("Package repo:", Style::default().fg(Color::Magenta)),
-                // Text::raw(format!(" {}\n", &d.get_package_repo())),
-                // Text::styled("License", Style::default().fg(Color::Yellow)),
-                // Text::raw(format!(" {}\n", &d.get_license())),
-                // Text::styled("Description", Style::default().fg(Color::Cyan)),
-                // Text::raw(format!(" {}\n", &d.get_description())),
+                Text::raw(format!(" {}\n", stringify(&self.project.get_author(&d)))),
+                Text::styled("Homepage", Style::default().fg(Color::Magenta)),
+                Text::raw(format!(" {}\n", stringify(&self.project.get_homepage(&d)))),
+                Text::styled("Package repo:", Style::default().fg(Color::Magenta)),
+                Text::raw(format!(" {}\n", stringify(&self.project.get_repository(&d)))),
+                Text::styled("License", Style::default().fg(Color::Yellow)),
+                Text::raw(format!(" {}\n", stringify(&self.project.get_license(&d)))),
+                Text::styled("Description", Style::default().fg(Color::Cyan)),
+                Text::raw(format!(" {}\n", stringify(&self.project.get_description(&d)))),
             ];
             let block = Paragraph::new(text.iter())
                 .block(

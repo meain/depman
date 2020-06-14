@@ -128,19 +128,24 @@ impl Project {
         "nio".to_string()  // TODO
     }
 
-    pub fn get_author(&self, name: &str) -> String {
-        "nio".to_string()  // TODO
-    }
 
     pub fn get_upgrade_type(&self, group: &str, name: &str) -> UpgradeType {
         UpgradeType::None
     }
 
+    pub fn get_author(&self, name: &str) -> Option<String> {
+        self.metadata.get(name).unwrap().author.clone()
+    }
     pub fn get_homepage(&self, name: &str) -> Option<String> {
         self.metadata.get(name).unwrap().homepage.clone()
     }
-
     pub fn get_repository(&self, name: &str) -> Option<String> {
         self.metadata.get(name).unwrap().repository.clone()
+    }
+    pub fn get_license(&self, name: &str) -> Option<String> {
+        self.metadata.get(name).unwrap().license.clone()
+    }
+    pub fn get_description(&self, name: &str) -> Option<String> {
+        self.metadata.get(name).unwrap().description.clone()
     }
 }
