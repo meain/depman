@@ -50,9 +50,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // printer(&config);
 
     if true {
+        let stdout = io::stdout();
+
         let stdout = io::stdout().into_raw_mode()?;
         let stdout = MouseTerminal::from(stdout);
         let stdout = AlternateScreen::from(stdout);
+
         let backend = TermionBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
         terminal.hide_cursor()?;
@@ -86,7 +89,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .split(chunks[0]);
 
                 app.render_tabs(&mut f, tabl);
-                // app.render_dependency_info(&mut f, chunks[1]);
+                app.render_dependency_info(&mut f, chunks[1]);
                 // app.render_version_selector(&mut f);
                 app.render_help_menu(&mut f);
                 app.display_message(&mut f);

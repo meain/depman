@@ -450,7 +450,11 @@ impl App {
         if let PopupKind::SearchList = self.popup {
             let mut results = vec![];
             for item in &self.search_result.items {
-                results.push(Text::raw(format!("{} {}", item, self.project.get_current_version(item))))
+                results.push(Text::raw(format!(
+                    "{} {}",
+                    item,
+                    self.project.get_current_version(item)
+                )))
             }
             let block = List::new(results.into_iter())
                 .block(
@@ -548,95 +552,76 @@ impl App {
         // f.render_widget(inner, chunk[1]);
     }
 
-    // pub fn render_dependency_info<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
-    //     let dep = self.get_current_dep();
-    //     if let Some(d) = dep {
-    //         let text = [
-    //             Text::styled("Name", Style::default().fg(Color::Red)),
-    //             Text::raw(format!(" {}\n", d.name)),
-    //             Text::styled("Specified Version", Style::default().fg(Color::Blue)),
-    //             Text::raw(format!(" {}\n", &d.get_specified_version())),
-    //             Text::styled("Current Version", Style::default().fg(Color::Blue)),
-    //             Text::raw(format!(" {}\n", &d.get_current_version())),
-    //             Text::styled("Upgradeable Version", Style::default().fg(Color::Blue)),
-    //             Text::raw(format!(" {}\n", &d.get_latest_semver_version())),
-    //             Text::styled("Latest Version", Style::default().fg(Color::Blue)),
-    //             Text::raw(format!(" {}\n", &d.get_latest_version())),
-    //             Text::styled("Author", Style::default().fg(Color::Green)),
-    //             Text::raw(format!(" {}\n", &d.get_author())),
-    //             Text::styled("Homepage", Style::default().fg(Color::Magenta)),
-    //             Text::raw(format!(" {}\n", &d.get_homepage())),
-    //             Text::styled("Package repo:", Style::default().fg(Color::Magenta)),
-    //             Text::raw(format!(" {}\n", &d.get_package_repo())),
-    //             Text::styled("License", Style::default().fg(Color::Yellow)),
-    //             Text::raw(format!(" {}\n", &d.get_license())),
-    //             Text::styled("Description", Style::default().fg(Color::Cyan)),
-    //             Text::raw(format!(" {}\n", &d.get_description())),
-    //         ];
-    //         let block = Paragraph::new(text.iter())
-    //             .block(
-    //                 Block::default()
-    //                     .title("Info")
-    //                     .borders(Borders::ALL)
-    //                     .border_type(BorderType::Rounded)
-    //                     .border_style(Style::default().fg(Color::White)),
-    //             )
-    //             .style(Style::default())
-    //             .alignment(Alignment::Left)
-    //             .wrap(true);
-    //         f.render_widget(block, chunk);
-    //     }
-    // }
+    pub fn render_dependency_info<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
+        let dep = self.get_current_dep_name();
+        if let Some(d) = dep {
+            let text = [
+                Text::styled("Name", Style::default().fg(Color::Red)),
+                Text::raw(format!(" {}\n", d)),
+                Text::styled("Specified Version", Style::default().fg(Color::Blue)),
+                Text::raw(format!(" {}\n", self.project.get_specified_version(&d))),
+                Text::styled("Current Version", Style::default().fg(Color::Blue)),
+                Text::raw(format!(" {}\n", self.project.get_current_version(&d))),
+                Text::styled("Upgradeable Version", Style::default().fg(Color::Blue)),
+                Text::raw(format!(" {}\n", self.project.get_semver_version(&d))),
+                Text::styled("Latest Version", Style::default().fg(Color::Blue)),
+                Text::raw(format!(" {}\n", self.project.get_latest_version(&d))),
+                Text::styled("Author", Style::default().fg(Color::Green)),
+                Text::raw(format!(" {}\n", self.project.get_author(&d))),
+                Text::styled("Homepage", Style::default().fg(Color::Magenta)),
+                // Text::raw(format!(" {}\n", &d.get_homepage())),
+                // Text::styled("Package repo:", Style::default().fg(Color::Magenta)),
+                // Text::raw(format!(" {}\n", &d.get_package_repo())),
+                // Text::styled("License", Style::default().fg(Color::Yellow)),
+                // Text::raw(format!(" {}\n", &d.get_license())),
+                // Text::styled("Description", Style::default().fg(Color::Cyan)),
+                // Text::raw(format!(" {}\n", &d.get_description())),
+            ];
+            let block = Paragraph::new(text.iter())
+                .block(
+                    Block::default()
+                        .title("Info")
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(Color::White)),
+                )
+                .style(Style::default())
+                .alignment(Alignment::Left)
+                .wrap(true);
+            f.render_widget(block, chunk);
+        }
+    }
+
+    fn get_current_group_name(&self) -> Option<String> {
+        if &self.tabs.index < &self.tabs.titles.len() {
+            Some(self.tabs.titles[self.tabs.index].to_string())
+        } else {
+            None
+        }
+    }
 
     pub fn render_dependency_list<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
         if let Some(dc) = self.get_current_dep_name() {
-            // let dc_upgrade_type = dc.get_ugrade_type();
-            let dc_upgrade_type = UpgradeType::None;
-            // let is_newer_available = match &dc.current_version {
-            //     Some(cv) => match &dc.latest_version {
-            //         Some(lv) => cv < &lv,
-            //         _ => false,
-            //     },
-            //     _ => false,
-            // };
-            let is_newer_available = false;
+            let current_tab = &self.get_current_group_name().unwrap();
+            let dc_upgrade_type = self.project.get_upgrade_type(&current_tab, &dc);
             let mut items = vec![];
             for item in self.items.items.iter() {
-                // let dep = self.project.get_dep(item);
-                let dep = None;
-                match dep {
-                    Some(d) => {
-                        // let upgrade_type = d.get_ugrade_type();
-                        let upgrade_type = UpgradeType::None;
-                        // let is_newer_available = match &d.current_version {
-                        //     Some(cv) => match &d.latest_version {
-                        //         Some(lv) => cv < &lv,
-                        //         _ => false,
-                        //     },
-                        //     _ => false,
-                        // };
-                        let is_newer_available = false;
-                        let breaking_changes_string = match is_newer_available {
-                            true => match upgrade_type {
-                                UpgradeType::None => "+",
-                                _ => "",
-                            },
-                            false => "",
-                        };
-                        items.push(Text::styled(
-                            format!(
-                                "{} ({} > {})  {}",
-                                d,
-                                self.project.get_current_version(d),
-                                self.project.get_semver_version(d),
-                                breaking_changes_string
-                            ),
-                            Style::default()
-                                .fg(get_version_color(upgrade_type, is_newer_available)),
-                        ));
-                    }
-                    None => unreachable!(),
-                }
+                let upgrade_type = self.project.get_upgrade_type(&current_tab, &item);
+                // use UpgradeType::Breaking instead of is_newer_available
+                let breaking_changes_string = match upgrade_type {
+                    UpgradeType::Breaking => "+",
+                    _ => "",
+                };
+                items.push(Text::styled(
+                    format!(
+                        "{} ({} > {})  {}",
+                        item,
+                        self.project.get_current_version(&item),
+                        self.project.get_semver_version(&item),
+                        breaking_changes_string
+                    ),
+                    Style::default().fg(get_version_color(upgrade_type)),
+                ));
             }
             let block = List::new(items.into_iter())
                 .block(
@@ -648,7 +633,7 @@ impl App {
                 )
                 .style(Style::default())
                 .highlight_style(
-                    Style::default().fg(get_version_color(dc_upgrade_type, is_newer_available)),
+                    Style::default().fg(get_version_color(dc_upgrade_type)),
                 )
                 .highlight_symbol("■ "); // ║ ▓ ■
             f.render_stateful_widget(block, chunk, &mut self.items.state);
@@ -674,15 +659,13 @@ impl App {
     }
 }
 
-fn get_version_color(upgrage_type: UpgradeType, is_newer_available: bool) -> Color {
+fn get_version_color(upgrage_type: UpgradeType) -> Color {
     match upgrage_type {
-        UpgradeType::None => match is_newer_available {
-            true => Color::White, // TODO: figure out what exactly to do
-            false => Color::White,
-        },
+        UpgradeType::None => Color::White,
         UpgradeType::Major => Color::Red,
         UpgradeType::Minor => Color::Magenta,
         UpgradeType::Patch => Color::Green,
+        UpgradeType::Breaking => Color::White,
     }
 }
 

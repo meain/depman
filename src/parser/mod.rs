@@ -15,6 +15,7 @@ pub enum UpgradeType {
     Patch,
     Minor,
     Major,
+    Breaking,
 }
 
 type DependencyGroup = BTreeMap<String, Option<VersionReq>>;
@@ -91,5 +92,19 @@ impl Project {
     }
     pub fn get_semver_version(&self, name: &str) -> String {
         "nio".to_string()  // TODO
+    }
+    pub fn get_specified_version(&self, name: &str) -> String {
+        "nio".to_string()  // TODO
+    }
+    pub fn get_latest_version(&self, name: &str) -> String {
+        "nio".to_string()  // TODO
+    }
+
+    pub fn get_author(&self, name: &str) -> String {
+        "nio".to_string()  // TODO
+    }
+
+    pub fn get_upgrade_type(&self, group: &str, name: &str) -> UpgradeType {
+        UpgradeType::None
     }
 }
