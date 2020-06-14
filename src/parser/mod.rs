@@ -50,9 +50,10 @@ pub fn stringify<T: ToString>(value: Option<T>) -> String {
 impl Project {
     pub async fn parse(folder: &str, kind: &ParserKind) -> Project {
         let config = parsers::parse_config(folder, kind);
+        let lockfile = parsers::parse_lockfile(folder, kind);
         Project {
             config,
-            lockfile: HashMap::new(),
+            lockfile,
             metadata: HashMap::new()
         }
     }
