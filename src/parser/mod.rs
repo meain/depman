@@ -40,7 +40,7 @@ pub struct Project {
     metadata: MetaData,
 }
 
-pub fn stringify<T: ToString>(value: Option<T>) -> String {
+pub fn stringify<T: ToString>(value: &Option<T>) -> String {
     match value {
         Some(v) => v.to_string(),
         None => "-".to_string(),
@@ -88,13 +88,13 @@ impl Project {
     }
 
     pub fn get_current_version(&self, name: &str) -> String {
-        "nio".to_string()  // TODO
+        stringify(&self.lockfile.get(name))
     }
     pub fn get_semver_version(&self, name: &str) -> String {
         "nio".to_string()  // TODO
     }
-    pub fn get_specified_version(&self, name: &str) -> String {
-        "nio".to_string()  // TODO
+    pub fn get_specified_version(&self, group: &str, name: &str) -> String {
+        stringify(self.config.groups.get(group).unwrap().get(name).unwrap())
     }
     pub fn get_latest_version(&self, name: &str) -> String {
         "nio".to_string()  // TODO

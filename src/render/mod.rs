@@ -553,13 +553,14 @@ impl App {
     }
 
     pub fn render_dependency_info<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
+        let current_tab = &self.get_current_group_name().unwrap();
         let dep = self.get_current_dep_name();
         if let Some(d) = dep {
             let text = [
                 Text::styled("Name", Style::default().fg(Color::Red)),
                 Text::raw(format!(" {}\n", d)),
                 Text::styled("Specified Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", self.project.get_specified_version(&d))),
+                Text::raw(format!(" {}\n", self.project.get_specified_version(&current_tab, &d))),
                 Text::styled("Current Version", Style::default().fg(Color::Blue)),
                 Text::raw(format!(" {}\n", self.project.get_current_version(&d))),
                 Text::styled("Upgradeable Version", Style::default().fg(Color::Blue)),
@@ -568,7 +569,7 @@ impl App {
                 Text::raw(format!(" {}\n", self.project.get_latest_version(&d))),
                 Text::styled("Author", Style::default().fg(Color::Green)),
                 Text::raw(format!(" {}\n", self.project.get_author(&d))),
-                Text::styled("Homepage", Style::default().fg(Color::Magenta)),
+                // Text::styled("Homepage", Style::default().fg(Color::Magenta)),
                 // Text::raw(format!(" {}\n", &d.get_homepage())),
                 // Text::styled("Package repo:", Style::default().fg(Color::Magenta)),
                 // Text::raw(format!(" {}\n", &d.get_package_repo())),
