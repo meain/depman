@@ -158,11 +158,8 @@ async fn fetch_resp(dep: String, kind: String) -> Result<CargoResponseWithKind, 
 async fn fetch_dep_infos(config: &mut Config) -> Result<(), Box<dyn Error + 'static>> {
     let mut gets = vec![];
     for (kind, group) in config.dep_groups.iter() {
-        for (name, dep) in group.iter() {
-            // so that we do not refetch it on rerender
-            if let None = dep.latest_version {
-                gets.push(fetch_resp(name.to_string(), kind.to_string()));
-            }
+        for (name, _) in group.iter() {
+            gets.push(fetch_resp(name.to_string(), kind.to_string()));
         }
     }
 
