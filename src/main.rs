@@ -145,8 +145,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 //     reload = true;
                                 // }
                             }
-                            // Key::Char('o') => app.open_homepage(),
-                            // Key::Char('p') => app.open_package_repo(),
+                            Key::Char('o') => app.open_homepage(),
+                            Key::Char('p') => app.open_repository(),
                             Key::Char('?') => app.toggle_help_menu(), // h is for next tab
                             Key::Esc => {
                                 app.unwrap_popup();

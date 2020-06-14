@@ -90,13 +90,11 @@ impl App {
     fn get_current_version_strings(&self) -> Vec<String> {
         let current_dep = self.get_current_dep_name();
         match current_dep {
-            Some(dep) => {
-                match self.project.get_dep_versions(&dep) {
-                    Some(v) => v,
-                    None => vec![]
-                }
-            }
-            _ => vec![]
+            Some(dep) => match self.project.get_dep_versions(&dep) {
+                Some(v) => v,
+                None => vec![],
+            },
+            _ => vec![],
         }
     }
     pub fn set_state(&mut self, state: AppState) {
@@ -126,32 +124,31 @@ impl App {
         self.versions.get_item()
     }
 
-    // pub fn open_homepage(&mut self) {
-    //     let dep = self.project.get_dep(&self.items.get_item());
-    //     if let Some(d) = dep {
-    //         let homepage = d.homepage;
-    //
-    //         match homepage {
-    //             Some(hp) => {
-    //                 Command::new("open")
-    //                     .arg(hp)
-    //                     .output()
-    //                     .expect("Failed to execute command");
-    //             }
-    //             None => {}
-    //         }
-    //     }
-    // }
+    pub fn open_homepage(&mut self) {
+        let current_dep = self.get_current_dep_name();
+        if let Some(dep) = current_dep {
+            let homepage = self.project.get_homepage(&dep);
+            if let Some(hp) = homepage {
+                Command::new("open")
+                    .arg(hp)
+                    .output()
+                    .expect("Failed to execute command");
+            }
+        }
+    }
 
-    // pub fn open_package_repo(&mut self) {
-    //     let dep = self.project.get_dep(&self.items.get_item());
-    //     if let Some(de) = dep {
-    //         Command::new("open")
-    //             .arg(de.get_package_repo())
-    //             .output()
-    //             .expect("Failed to execute command");
-    //     }
-    // }
+    pub fn open_repository(&mut self) {
+        let current_dep = self.get_current_dep_name();
+        if let Some(dep) = current_dep {
+            let repository = self.project.get_repository(&dep);
+            if let Some(rp) = repository {
+                Command::new("open")
+                    .arg(rp)
+                    .output()
+                    .expect("Failed to execute command");
+            }
+        }
+    }
 
     pub fn unwrap_popup(&mut self) {
         self.popup = match self.popup {
@@ -171,7 +168,10 @@ impl App {
     }
     pub fn toggle_versions_menu(&mut self) {
         if let PopupKind::None = self.popup {
-            if !self.project.is_versions_available(&self.get_current_dep_name().unwrap()) {
+            if !self
+                .project
+                .is_versions_available(&self.get_current_dep_name().unwrap())
+            {
                 self.message = Some("No versions available".to_string());
                 self.popup = PopupKind::Message;
                 return;
@@ -473,7 +473,9 @@ impl App {
             if let PopupKind::Versions = self.popup {
                 let mut items = vec![];
                 for item in self.versions.items.iter() {
-                    if &self.project.get_current_version(&d) == item && &self.project.get_semver_version(&d) == item {
+                    if &self.project.get_current_version(&d) == item
+                        && &self.project.get_semver_version(&d) == item
+                    {
                         items.push(Text::styled(
                             format!("{} current&latest-semver", item),
                             Style::default().fg(Color::Cyan),

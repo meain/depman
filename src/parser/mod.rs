@@ -135,4 +135,12 @@ impl Project {
     pub fn get_upgrade_type(&self, group: &str, name: &str) -> UpgradeType {
         UpgradeType::None
     }
+
+    pub fn get_homepage(&self, name: &str) -> Option<String> {
+        self.metadata.get(name).unwrap().homepage.clone()
+    }
+
+    pub fn get_repository(&self, name: &str) -> Option<String> {
+        self.metadata.get(name).unwrap().repository.clone()
+    }
 }
