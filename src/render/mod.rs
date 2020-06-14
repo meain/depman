@@ -560,7 +560,10 @@ impl App {
                 Text::styled("Name", Style::default().fg(Color::Red)),
                 Text::raw(format!(" {}\n", d)),
                 Text::styled("Specified Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", self.project.get_specified_version(&current_tab, &d))),
+                Text::raw(format!(
+                    " {}\n",
+                    self.project.get_specified_version(&current_tab, &d)
+                )),
                 Text::styled("Current Version", Style::default().fg(Color::Blue)),
                 Text::raw(format!(" {}\n", self.project.get_current_version(&d))),
                 Text::styled("Upgradeable Version", Style::default().fg(Color::Blue)),
@@ -633,9 +636,7 @@ impl App {
                         .border_style(Style::default().fg(Color::White)),
                 )
                 .style(Style::default())
-                .highlight_style(
-                    Style::default().fg(get_version_color(dc_upgrade_type)),
-                )
+                .highlight_style(Style::default().fg(get_version_color(dc_upgrade_type)))
                 .highlight_symbol("■ "); // ║ ▓ ■
             f.render_stateful_widget(block, chunk, &mut self.items.state);
         } else {

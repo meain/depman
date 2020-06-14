@@ -1,11 +1,32 @@
+use std::fs;
+use std::env;
 use std::collections::hash_map::HashMap;
 use std::collections::BTreeMap;
-use std::fs;
 
-use semver::{Version, VersionReq};
 use toml::Value;
+use semver::{Version, VersionReq};
+use serde::{Deserialize, Serialize};
 
-use crate::parser::{Config, DependencyGroup, Lockfile};
+use crate::parser::{Config, DependencyGroup, Lockfile, DepInfo};
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct CargoResponseCrate {
+    name: String,
+    description: Option<String>,
+    license: Option<String>, // TODO: license is version specific
+    homepage: Option<String>,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct CargoResponseVersion {
+    num: String,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CargoResponse {
+    #[serde(alias = "crate")]
+    info: CargoResponseCrate,
+    versions: Vec<CargoResponseVersion>,
+}
 
 pub struct RustCargo;
 impl RustCargo {
@@ -91,4 +112,30 @@ impl RustCargo {
         println!("packages: {:?}", packages.keys().len());
         packages
     }
+
+    pub async fn fetch_dep_info(name: &str) -> Result<DepInfo, Box<dyn std::error::Error>> {
+        let mut url = format!("https://crates.io/api/v1/crates/{}", name);
+        if let Ok(_) = env::var("MEAIN_TEST_ENV") {
+            url = format!("http://localhost:8000/cargo/{}.json", name)
+        }
+        let resp: CargoResponse = reqwest::Client::new()
+            .get(&url)
+            .header("User-Agent", "depman (github.com/meain/depman)")
+            .send()
+            .await?
+            .json()
+            .await?;
+
+        let versions = resp.versions.into_iter().map(|x| Version::parse(&x.num).unwrap()).collect();
+
+        Ok(DepInfo{
+            author: None,
+            homepage: resp.info.homepage,
+            license: resp.info.license,
+            description: resp.info.description,
+            repository: Some(format!("https://crates.io/crates/{}", name)),
+            versions
+        })
+    }
+
 }

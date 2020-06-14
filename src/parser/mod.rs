@@ -5,6 +5,7 @@ use semver::{Version, VersionReq};
 use std::collections::hash_map::HashMap;
 use std::collections::BTreeMap;
 use std::string::ToString;
+use futures::future::try_join_all;
 
 use determinekind::ParserKind;
 
@@ -24,6 +25,7 @@ pub struct Config {
     pub version: Option<Version>,
     pub groups: BTreeMap<String, DependencyGroup>,
 }
+#[derive(Debug, Clone)]
 struct DepInfo {
     author: Option<String>,
     homepage: Option<String>,
@@ -52,10 +54,30 @@ impl Project {
     pub async fn parse(folder: &str, kind: &ParserKind) -> Project {
         let config = parsers::parse_config(folder, kind);
         let lockfile = parsers::parse_lockfile(folder, kind);
+        let dep_names: Vec<String> = config.groups.keys().into_iter()
+            .flat_map(|x| config.groups[x].keys())
+            .map(|x| x.to_string())
+            .collect();
+        // let mut fetchers = vec![];
+        // for item in dep_names {
+        //     fetchers.push(parsers::fetch_dep_info(item.to_string(), kind));
+        // }
+        let fetchers = dep_names.clone().into_iter().map(|x| parsers::fetch_dep_info(x.to_string(), kind));
+        let results = try_join_all(fetchers).await.unwrap_or(vec![]);
+        let mut metadata = HashMap::new();
+
+        if &results.len() == &dep_names.len() {
+            let mut count = 0;
+            for item in dep_names {
+                metadata.insert(item, results[count].clone());
+                count += 1;
+            }
+        }
+
         Project {
             config,
             lockfile,
-            metadata: HashMap::new()
+            metadata
         }
     }
     // pub async fn search_deps(kind: &ParserKind, query: &str) {}
