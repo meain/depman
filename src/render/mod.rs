@@ -8,7 +8,8 @@ use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Tex
 use std::process::Command;
 use tui::terminal::Frame;
 
-use crate::parser::{Config, Dep, ParserKind, SearchDep, UpgradeType};
+use crate::parser::determinekind::ParserKind;
+use crate::parser::{Project, UpgradeType};
 
 #[derive(Debug)]
 pub struct InstallCandidate {
@@ -32,7 +33,7 @@ pub enum PopupKind {
 }
 pub struct App {
     pub kind: ParserKind,
-    data: Config,
+    project: Project,
     tabs: TabsState,
     items: StatefulList<String>,
     versions: StatefulList<String>,
@@ -40,22 +41,22 @@ pub struct App {
     help_content_pos: u16,
     message: Option<String>,
     pub search_string: String,
-    pub search_result: StatefulList<SearchDep>,
+    pub search_result: StatefulList<String>,
 }
 
 impl App {
-    pub fn new(config: Config, kind: ParserKind) -> App {
-        let dep_kinds = config.get_dep_kinds();
-        let dep_names = config.get_dep_names_of_kind(&dep_kinds[0]);
+    pub fn new(project: Project, kind: ParserKind) -> App {
+        let dep_kinds = project.get_groups();
+        let dep_names = project.get_deps_in_group(&dep_kinds[0]);
         let mut dep_versions = vec![];
         if dep_names.len() > 0 {
-            if let Some(dep) = config.get_dep(&dep_names[0]) {
-                dep_versions = dep.get_version_strings();
+            if let Some(dep) = project.get_dep_versions(&dep_names[0]) {
+                dep_versions = dep.into_iter().map(|x| x.to_string()).collect();
             }
         }
         App {
             kind,
-            data: config,
+            project,
             tabs: TabsState::new(dep_kinds),
             items: StatefulList::with_items(dep_names),
             versions: StatefulList::with_items(dep_versions),
@@ -86,59 +87,65 @@ impl App {
             dep,
         }
     }
+    fn get_current_version_strings(&self) -> Vec<String> {
+        vec![]
+        // if let Some(dep) = project.get_dep_versions(&dep_names[0]) {
+        //     dep_versions = dep.into_iter().map(|x| x.to_string()).collect();
+        // }
+    }
     pub fn set_state(&mut self, state: AppState) {
         self.tabs.index = state.tab;
         let dep_names = self
-            .data
-            .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
+            .project
+            .get_deps_in_group(&self.tabs.titles[self.tabs.index]);
         self.items = StatefulList::with_items(dep_names);
         self.items.state.select(state.dep);
-        let mut dep_versions = vec![];
-        if let Some(dep) = self.get_current_dep() {
-            dep_versions = dep.get_version_strings();
-        }
+        let dep_versions = self.get_current_version_strings();
         self.versions = StatefulList::with_items(dep_versions);
         self.versions.state.select(self.get_current_version_index());
     }
 
-    pub fn get_current_dep(&self) -> Option<Dep> {
-        if self.items.items.len() > 0 {
-            self.data.get_dep(&self.items.get_item())
-        } else {
-            None
-        }
-    }
+    // pub fn get_current_dep(&self) -> Option<Dep> {
+    //     if &self.tabs.index < &self.tabs.titles.len() {
+    //         let group = &self.tabs.titles[self.tabs.index];
+    //         if self.items.items.len() > 0 {
+    //             self.project.get_dep(&self.items.get_item())
+    //         } else {
+    //             None
+    //         }
+    //     }
+    // }
 
     pub fn get_selected_version(&mut self) -> String {
         self.versions.get_item()
     }
 
-    pub fn open_homepage(&mut self) {
-        let dep = self.data.get_dep(&self.items.get_item());
-        if let Some(d) = dep {
-            let homepage = d.homepage;
+    // pub fn open_homepage(&mut self) {
+    //     let dep = self.project.get_dep(&self.items.get_item());
+    //     if let Some(d) = dep {
+    //         let homepage = d.homepage;
+    //
+    //         match homepage {
+    //             Some(hp) => {
+    //                 Command::new("open")
+    //                     .arg(hp)
+    //                     .output()
+    //                     .expect("Failed to execute command");
+    //             }
+    //             None => {}
+    //         }
+    //     }
+    // }
 
-            match homepage {
-                Some(hp) => {
-                    Command::new("open")
-                        .arg(hp)
-                        .output()
-                        .expect("Failed to execute command");
-                }
-                None => {}
-            }
-        }
-    }
-
-    pub fn open_package_repo(&mut self) {
-        let dep = self.data.get_dep(&self.items.get_item());
-        if let Some(de) = dep {
-            Command::new("open")
-                .arg(de.get_package_repo())
-                .output()
-                .expect("Failed to execute command");
-        }
-    }
+    // pub fn open_package_repo(&mut self) {
+    //     let dep = self.project.get_dep(&self.items.get_item());
+    //     if let Some(de) = dep {
+    //         Command::new("open")
+    //             .arg(de.get_package_repo())
+    //             .output()
+    //             .expect("Failed to execute command");
+    //     }
+    // }
 
     pub fn unwrap_popup(&mut self) {
         self.popup = match self.popup {
@@ -181,29 +188,23 @@ impl App {
     pub fn tab_next(&mut self) {
         self.tabs.next();
         let dep_names = self
-            .data
-            .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
+            .project
+            .get_deps_in_group(&self.tabs.titles[self.tabs.index]);
         self.items = StatefulList::with_items(dep_names);
         self.items.next();
-        let mut dep_versions = vec![];
-        if let Some(dep) = self.get_current_dep() {
-            dep_versions = dep.get_version_strings();
-        }
+        let dep_versions = self.get_current_version_strings();
         self.versions = StatefulList::with_items(dep_versions);
         self.versions.state.select(self.get_current_version_index());
     }
     pub fn tab_previous(&mut self) {
         self.tabs.previous();
         let dep_names = self
-            .data
-            .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
+            .project
+            .get_deps_in_group(&self.tabs.titles[self.tabs.index]);
         self.items = StatefulList::with_items(dep_names);
         self.items.next();
 
-        let mut dep_versions = vec![];
-        if let Some(dep) = self.get_current_dep() {
-            dep_versions = dep.get_version_strings();
-        }
+        let dep_versions = self.get_current_version_strings();
         self.versions = StatefulList::with_items(dep_versions);
         self.versions.state.select(self.get_current_version_index());
     }
@@ -218,10 +219,7 @@ impl App {
             self.versions.next()
         } else {
             self.items.first();
-            let mut dep_versions = vec![];
-            if let Some(dep) = self.get_current_dep() {
-                dep_versions = dep.get_version_strings();
-            }
+            let dep_versions = self.get_current_version_strings();
             self.versions = StatefulList::with_items(dep_versions);
             self.versions.state.select(self.get_current_version_index());
         }
@@ -232,10 +230,7 @@ impl App {
             self.versions.last();
         } else {
             self.items.last();
-            let mut dep_versions = vec![];
-            if let Some(dep) = self.get_current_dep() {
-                dep_versions = dep.get_version_strings();
-            }
+            let dep_versions = self.get_current_version_strings();
             self.versions = StatefulList::with_items(dep_versions);
             self.versions.state.select(self.get_current_version_index());
         }
@@ -248,10 +243,7 @@ impl App {
             PopupKind::SearchList => self.search_result.next(),
             _ => {
                 self.items.next();
-                let mut dep_versions = vec![];
-                if let Some(dep) = self.get_current_dep() {
-                    dep_versions = dep.get_version_strings();
-                }
+                let dep_versions = self.get_current_version_strings();
                 self.versions = StatefulList::with_items(dep_versions);
                 self.versions.state.select(self.get_current_version_index());
             }
@@ -269,39 +261,36 @@ impl App {
             PopupKind::SearchList => self.search_result.previous(),
             _ => {
                 self.items.previous();
-                let mut dep_versions = vec![];
-                if let Some(dep) = self.get_current_dep() {
-                    dep_versions = dep.get_version_strings();
-                }
+                let dep_versions = self.get_current_version_strings();
                 self.versions = StatefulList::with_items(dep_versions);
                 self.versions.state.select(self.get_current_version_index());
             }
         }
     }
 
-    pub fn get_install_candidate(&mut self) -> Option<InstallCandidate> {
-        match self.popup {
-            PopupKind::Versions => {
-                let current_dep = self.get_current_dep().unwrap();
-                let version_string = self.get_selected_version();
-                Some(InstallCandidate {
-                    name: current_dep.name,
-                    version: version_string,
-                    kind: self.tabs.titles[self.tabs.index].to_string(),
-                })
-            }
-            PopupKind::SearchList => {
-                let search_dep =
-                    self.search_result.items[self.search_result.state.selected().unwrap()].clone();
-                Some(InstallCandidate {
-                    name: search_dep.name,
-                    version: search_dep.version,
-                    kind: self.tabs.titles[self.tabs.index].to_string(),
-                })
-            }
-            _ => None,
-        }
-    }
+    // pub fn get_install_candidate(&mut self) -> Option<InstallCandidate> {
+    //     match self.popup {
+    //         PopupKind::Versions => {
+    //             let current_dep = self.get_current_dep_name().unwrap();
+    //             let version_string = self.get_selected_version();
+    //             Some(InstallCandidate {
+    //                 name: current_dep,
+    //                 version: version_string,
+    //                 kind: self.tabs.titles[self.tabs.index].to_string(),
+    //             })
+    //         }
+    //         PopupKind::SearchList => {
+    //             let search_dep =
+    //                 self.search_result.items[self.search_result.state.selected().unwrap()].clone();
+    //             Some(InstallCandidate {
+    //                 name: search_dep,  // TODO
+    //                 version: search_dep,
+    //                 kind: self.tabs.titles[self.tabs.index].to_string(),
+    //             })
+    //         }
+    //         _ => None,
+    //     }
+    // }
 
     pub fn set_message(&mut self, message: &str) {
         self.message = Some(message.to_string());
@@ -312,19 +301,35 @@ impl App {
         self.message = None;
     }
 
-    pub fn is_versions_available(&mut self) -> bool {
-        let current_dep = self.get_current_dep().unwrap();
-        match current_dep.available_versions {
-            Some(av) => av.len() > 0,
-            None => false,
+    fn get_current_dep_name(&self) -> Option<String> {
+        if &self.tabs.index < &self.tabs.titles.len() {
+            let group = &self.tabs.titles[self.tabs.index];
+            match &self.items.state.selected() {
+                Some(ds) => Some(self.items.get_item()),
+                None => None,
+            }
+        } else {
+            None
         }
     }
 
-    pub fn show_searches(&mut self, r: Vec<SearchDep>) {
-        self.popup = PopupKind::SearchList;
-        self.search_result = StatefulList::with_items(r);
-        self.search_result.next();
+    pub fn is_versions_available(&mut self) -> bool {
+        if let Some(dep_name) = self.get_current_dep_name() {
+            let versions = self.project.get_dep_versions(&dep_name);
+            match versions {
+                Some(av) => av.len() > 0,
+                None => false,
+            }
+        } else {
+            false
+        }
     }
+
+    // pub fn show_searches(&mut self, r: Vec<SearchDep>) {
+    //     self.popup = PopupKind::SearchList;
+    //     self.search_result = StatefulList::with_items(r);
+    //     self.search_result.next();
+    // }
 
     pub fn search_update(&mut self, input: Key) {
         match input {
@@ -445,7 +450,7 @@ impl App {
         if let PopupKind::SearchList = self.popup {
             let mut results = vec![];
             for item in &self.search_result.items {
-                results.push(Text::raw(format!("{} {}", item.name, item.version)))
+                results.push(Text::raw(format!("{} {}", item, self.project.get_current_version(item))))
             }
             let block = List::new(results.into_iter())
                 .block(
@@ -465,65 +470,65 @@ impl App {
         }
     }
 
-    pub fn render_version_selector<B: Backend>(&mut self, f: &mut Frame<B>) {
-        if let Some(d) = self.get_current_dep() {
-            if let PopupKind::Versions = self.popup {
-                let mut items = vec![];
-                for item in self.versions.items.iter() {
-                    if &d.get_current_version() == item && &d.get_latest_semver_version() == item {
-                        items.push(Text::styled(
-                            format!("{} current&latest-semver", item),
-                            Style::default().fg(Color::Cyan),
-                        ));
-                    } else if &d.get_current_version() == item {
-                        items.push(Text::styled(
-                            format!("{} current", item),
-                            Style::default().fg(Color::Cyan),
-                        ));
-                    } else if &d.get_latest_semver_version() == item {
-                        items.push(Text::styled(
-                            format!("{} latest-semver", item),
-                            Style::default().fg(Color::Green),
-                        ));
-                    } else {
-                        items.push(Text::raw(item));
-                    }
-                }
-
-                let mut color = Color::White;
-                let current_item = self.versions.state.selected();
-                if let Some(ci) = current_item {
-                    let item = &self.versions.items[ci];
-                    if &d.get_current_version() == item {
-                        color = Color::Cyan;
-                    } else if &d.get_latest_semver_version() == item {
-                        color = Color::Green;
-                    }
-                }
-
-                let block = List::new(items.into_iter())
-                    .block(
-                        Block::default()
-                            .title("Versions")
-                            .borders(Borders::ALL)
-                            .border_type(BorderType::Rounded)
-                            .border_style(Style::default().fg(Color::Red)),
-                    )
-                    .style(Style::default())
-                    .highlight_style(Style::default().fg(color))
-                    .highlight_symbol("■ "); // ║ ▓ ■
-
-                let area = centered_rect(50, 50, f.size());
-                f.render_widget(Clear, area); //this clears out the background
-                f.render_stateful_widget(block, area, &mut self.versions.state);
-            }
-        }
-    }
+    // pub fn render_version_selector<B: Backend>(&mut self, f: &mut Frame<B>) {
+    //     if let Some(d) = self.get_current_dep() {
+    //         if let PopupKind::Versions = self.popup {
+    //             let mut items = vec![];
+    //             for item in self.versions.items.iter() {
+    //                 if &d.get_current_version() == item && &d.get_latest_semver_version() == item {
+    //                     items.push(Text::styled(
+    //                         format!("{} current&latest-semver", item),
+    //                         Style::default().fg(Color::Cyan),
+    //                     ));
+    //                 } else if &d.get_current_version() == item {
+    //                     items.push(Text::styled(
+    //                         format!("{} current", item),
+    //                         Style::default().fg(Color::Cyan),
+    //                     ));
+    //                 } else if &d.get_latest_semver_version() == item {
+    //                     items.push(Text::styled(
+    //                         format!("{} latest-semver", item),
+    //                         Style::default().fg(Color::Green),
+    //                     ));
+    //                 } else {
+    //                     items.push(Text::raw(item));
+    //                 }
+    //             }
+    //
+    //             let mut color = Color::White;
+    //             let current_item = self.versions.state.selected();
+    //             if let Some(ci) = current_item {
+    //                 let item = &self.versions.items[ci];
+    //                 if &d.get_current_version() == item {
+    //                     color = Color::Cyan;
+    //                 } else if &d.get_latest_semver_version() == item {
+    //                     color = Color::Green;
+    //                 }
+    //             }
+    //
+    //             let block = List::new(items.into_iter())
+    //                 .block(
+    //                     Block::default()
+    //                         .title("Versions")
+    //                         .borders(Borders::ALL)
+    //                         .border_type(BorderType::Rounded)
+    //                         .border_style(Style::default().fg(Color::Red)),
+    //                 )
+    //                 .style(Style::default())
+    //                 .highlight_style(Style::default().fg(color))
+    //                 .highlight_symbol("■ "); // ║ ▓ ■
+    //
+    //             let area = centered_rect(50, 50, f.size());
+    //             f.render_widget(Clear, area); //this clears out the background
+    //             f.render_stateful_widget(block, area, &mut self.versions.state);
+    //         }
+    //     }
+    // }
 
     pub fn get_current_version_index(&self) -> Option<usize> {
-        if let Some(d) = &self.get_current_dep() {
+        if let Some(d) = &self.get_current_dep_name() {
             for (i, item) in self.versions.items.iter().enumerate() {
-                if &d.get_current_version() == item {
+                if &self.project.get_current_version(d) == item {
                     return Some(i);
                 }
             }
@@ -543,69 +548,74 @@ impl App {
         // f.render_widget(inner, chunk[1]);
     }
 
-    pub fn render_dependency_info<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
-        let dep = self.get_current_dep();
-        if let Some(d) = dep {
-            let text = [
-                Text::styled("Name", Style::default().fg(Color::Red)),
-                Text::raw(format!(" {}\n", d.name)),
-                Text::styled("Specified Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", &d.get_specified_version())),
-                Text::styled("Current Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", &d.get_current_version())),
-                Text::styled("Upgradeable Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", &d.get_latest_semver_version())),
-                Text::styled("Latest Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", &d.get_latest_version())),
-                Text::styled("Author", Style::default().fg(Color::Green)),
-                Text::raw(format!(" {}\n", &d.get_author())),
-                Text::styled("Homepage", Style::default().fg(Color::Magenta)),
-                Text::raw(format!(" {}\n", &d.get_homepage())),
-                Text::styled("Package repo:", Style::default().fg(Color::Magenta)),
-                Text::raw(format!(" {}\n", &d.get_package_repo())),
-                Text::styled("License", Style::default().fg(Color::Yellow)),
-                Text::raw(format!(" {}\n", &d.get_license())),
-                Text::styled("Description", Style::default().fg(Color::Cyan)),
-                Text::raw(format!(" {}\n", &d.get_description())),
-            ];
-            let block = Paragraph::new(text.iter())
-                .block(
-                    Block::default()
-                        .title("Info")
-                        .borders(Borders::ALL)
-                        .border_type(BorderType::Rounded)
-                        .border_style(Style::default().fg(Color::White)),
-                )
-                .style(Style::default())
-                .alignment(Alignment::Left)
-                .wrap(true);
-            f.render_widget(block, chunk);
-        }
-    }
+    // pub fn render_dependency_info<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
+    //     let dep = self.get_current_dep();
+    //     if let Some(d) = dep {
+    //         let text = [
+    //             Text::styled("Name", Style::default().fg(Color::Red)),
+    //             Text::raw(format!(" {}\n", d.name)),
+    //             Text::styled("Specified Version", Style::default().fg(Color::Blue)),
+    //             Text::raw(format!(" {}\n", &d.get_specified_version())),
+    //             Text::styled("Current Version", Style::default().fg(Color::Blue)),
+    //             Text::raw(format!(" {}\n", &d.get_current_version())),
+    //             Text::styled("Upgradeable Version", Style::default().fg(Color::Blue)),
+    //             Text::raw(format!(" {}\n", &d.get_latest_semver_version())),
+    //             Text::styled("Latest Version", Style::default().fg(Color::Blue)),
+    //             Text::raw(format!(" {}\n", &d.get_latest_version())),
+    //             Text::styled("Author", Style::default().fg(Color::Green)),
+    //             Text::raw(format!(" {}\n", &d.get_author())),
+    //             Text::styled("Homepage", Style::default().fg(Color::Magenta)),
+    //             Text::raw(format!(" {}\n", &d.get_homepage())),
+    //             Text::styled("Package repo:", Style::default().fg(Color::Magenta)),
+    //             Text::raw(format!(" {}\n", &d.get_package_repo())),
+    //             Text::styled("License", Style::default().fg(Color::Yellow)),
+    //             Text::raw(format!(" {}\n", &d.get_license())),
+    //             Text::styled("Description", Style::default().fg(Color::Cyan)),
+    //             Text::raw(format!(" {}\n", &d.get_description())),
+    //         ];
+    //         let block = Paragraph::new(text.iter())
+    //             .block(
+    //                 Block::default()
+    //                     .title("Info")
+    //                     .borders(Borders::ALL)
+    //                     .border_type(BorderType::Rounded)
+    //                     .border_style(Style::default().fg(Color::White)),
+    //             )
+    //             .style(Style::default())
+    //             .alignment(Alignment::Left)
+    //             .wrap(true);
+    //         f.render_widget(block, chunk);
+    //     }
+    // }
 
     pub fn render_dependency_list<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
-        if let Some(dc) = self.get_current_dep() {
-            let dc_upgrade_type = dc.get_ugrade_type();
-            let is_newer_available = match &dc.current_version {
-                Some(cv) => match &dc.latest_version {
-                    Some(lv) => cv < &lv,
-                    _ => false,
-                },
-                _ => false,
-            };
+        if let Some(dc) = self.get_current_dep_name() {
+            // let dc_upgrade_type = dc.get_ugrade_type();
+            let dc_upgrade_type = UpgradeType::None;
+            // let is_newer_available = match &dc.current_version {
+            //     Some(cv) => match &dc.latest_version {
+            //         Some(lv) => cv < &lv,
+            //         _ => false,
+            //     },
+            //     _ => false,
+            // };
+            let is_newer_available = false;
             let mut items = vec![];
             for item in self.items.items.iter() {
-                let dep = self.data.get_dep(item);
+                // let dep = self.project.get_dep(item);
+                let dep = None;
                 match dep {
                     Some(d) => {
-                        let upgrade_type = d.get_ugrade_type();
-                        let is_newer_available = match &d.current_version {
-                            Some(cv) => match &d.latest_version {
-                                Some(lv) => cv < &lv,
-                                _ => false,
-                            },
-                            _ => false,
-                        };
+                        // let upgrade_type = d.get_ugrade_type();
+                        let upgrade_type = UpgradeType::None;
+                        // let is_newer_available = match &d.current_version {
+                        //     Some(cv) => match &d.latest_version {
+                        //         Some(lv) => cv < &lv,
+                        //         _ => false,
+                        //     },
+                        //     _ => false,
+                        // };
+                        let is_newer_available = false;
                         let breaking_changes_string = match is_newer_available {
                             true => match upgrade_type {
                                 UpgradeType::None => "+",
@@ -616,9 +626,9 @@ impl App {
                         items.push(Text::styled(
                             format!(
                                 "{} ({} > {})  {}",
-                                d.name,
-                                d.get_current_version(),
-                                d.get_latest_semver_version(),
+                                d,
+                                self.project.get_current_version(d),
+                                self.project.get_semver_version(d),
                                 breaking_changes_string
                             ),
                             Style::default()

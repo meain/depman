@@ -6,7 +6,6 @@ use crate::events::event::{Event, Events};
 use render::{PopupKind, App};
 
 use std::error::Error;
-use std::path::Path;
 use std::{env, io};
 use termion::event::Key;
 use termion::input::MouseTerminal;
@@ -18,33 +17,25 @@ use tui::Terminal;
 
 use tokio;
 
-use parser::{Config, ParserKind};
+use parser::Project;
+use parser::determinekind::ParserKind;
 
-#[allow(dead_code)]
-fn printer(config: &Config) {
-    for (gn, group) in config.dep_groups.iter() {
-        for (_, dep) in group.iter() {
-            let name = &dep.name;
-            let specified_version = &dep.get_specified_version();
-            let current_version = &dep.get_current_version();
-            let latest_version = &dep.get_latest_version();
-            let latest_semver_version = &dep.get_latest_semver_version();
-            println!(
-                "{}: [{}] {}({}) => {}({})",
-                gn, name, specified_version, current_version, latest_semver_version, latest_version
-            );
-        }
-    }
-}
-
-fn find_type(folder: &str) -> Option<ParserKind> {
-    if Path::new(&format!("{}/package-lock.json", folder)).exists() {
-        return Some(ParserKind::JavascriptNpm);
-    } else if Path::new(&format!("{}/Cargo.lock", folder)).exists() {
-        return Some(ParserKind::RustCargo);
-    }
-    None
-}
+// #[allow(dead_code)]
+// fn printer(config: &Config) {
+//     for (gn, group) in config.dep_groups.iter() {
+//         for (_, dep) in group.iter() {
+//             let name = &dep.name;
+//             let specified_version = &dep.get_specified_version();
+//             let current_version = &dep.get_current_version();
+//             let latest_version = &dep.get_latest_version();
+//             let latest_semver_version = &dep.get_latest_semver_version();
+//             println!(
+//                 "{}: [{}] {}({}) => {}({})",
+//                 gn, name, specified_version, current_version, latest_semver_version, latest_version
+//             );
+//         }
+//     }
+// }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -53,9 +44,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         true => &args[1],
         false => ".",
     };
-    let kind = find_type(&folder).expect("Unsupported package manager");
+    let kind = ParserKind::determine_kind(&folder).expect("Unsupported package manager");
     println!("Fetching dependency info...");
-    let config = Config::new(folder, kind).await;
+    let project = Project::parse(folder, &kind).await;
     // printer(&config);
 
     if true {
@@ -67,21 +58,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
         terminal.hide_cursor()?;
 
         let mut events = Events::new();
-        let mut app = App::new(config, kind);
+        let mut app = App::new(project, kind);
         app.next();
 
         let mut search_in_next_iter: Option<String> = None;
         let mut reload = true;
 
         loop {
-            if reload {
-                let config = Config::new(folder, kind).await;
-                let state = app.get_state();
-                app = App::new(config, kind);
-                app.set_state(state);  // TODO: will have to inject fetched result back in
-                reload = false;
-                continue;
-            }
+            // if reload {
+            //     let config = Config::parse(folder, kind).await;
+            //     let state = app.get_state();
+            //     app = App::new(config, kind);
+            //     app.set_state(state);  // TODO: will have to inject fetched result back in
+            //     reload = false;
+            //     continue;
+            // }
             terminal.draw(|mut f| {
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)
@@ -95,24 +86,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .split(chunks[0]);
 
                 app.render_tabs(&mut f, tabl);
-                app.render_dependency_info(&mut f, chunks[1]);
-                app.render_version_selector(&mut f);
+                // app.render_dependency_info(&mut f, chunks[1]);
+                // app.render_version_selector(&mut f);
                 app.render_help_menu(&mut f);
                 app.display_message(&mut f);
                 app.display_search_input(&mut f);
                 app.render_search_results(&mut f);
             })?;
 
-            if let Some(term) = search_in_next_iter {
-                search_in_next_iter = None;
-                let result = Config::search_deps(kind, &term).await;
-                app.remove_message();
-                match result {
-                    Ok(r) => app.show_searches(r),
-                    _ => app.set_message("Search failed"),
-                }
-                continue;
-            }
+            // if let Some(term) = search_in_next_iter {
+            //     search_in_next_iter = None;
+            //     let result = Project::search_deps(kind, &term).await;
+            //     app.remove_message();
+            //     match result {
+            //         Ok(r) => app.show_searches(r),
+            //         _ => app.set_message("Search failed"),
+            //     }
+            //     continue;
+            // }
 
             match events.next()? {
                 Event::Input(input) => {
@@ -145,14 +136,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 app.popup = PopupKind::SearchInput;
                             }
                             Key::Char('D') => {
-                                let status = Config::delete_dep(app.get_current_dep(), app.kind, folder);
-                                if status {
-                                    app.set_message("Dependency removed");
-                                    reload = true;
-                                }
+                                // let status = Config::delete_dep(app.get_current_dep(), app.kind, folder);
+                                // if status {
+                                //     app.set_message("Dependency removed");
+                                //     reload = true;
+                                // }
                             }
-                            Key::Char('o') => app.open_homepage(),
-                            Key::Char('p') => app.open_package_repo(),
+                            // Key::Char('o') => app.open_homepage(),
+                            // Key::Char('p') => app.open_package_repo(),
                             Key::Char('?') => app.toggle_help_menu(), // h is for next tab
                             Key::Esc => {
                                 app.unwrap_popup();
@@ -163,15 +154,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             Key::Down | Key::Char('j') => app.next(),
                             Key::Up | Key::Char('k') => app.previous(),
                             Key::Char('\n') => {
-                                let is_installed =
-                                    Config::install_dep(kind, app.get_install_candidate(), folder);
-                                if is_installed {
-                                    app.set_message("Dependency updated!");
-                                    reload = true;
-                                } else {
-                                    app.set_message("Update failed.");
-                                    reload = true;
-                                }
+                                // let is_installed =
+                                //     Config::install_dep(kind, app.get_install_candidate(), folder);
+                                // if is_installed {
+                                //     app.set_message("Dependency updated!");
+                                //     reload = true;
+                                // } else {
+                                //     app.set_message("Update failed.");
+                                //     reload = true;
+                                // }
                             }
                             Key::Char('g') => app.top(),
                             Key::Char('G') => app.bottom(),
