@@ -99,14 +99,20 @@ impl Project {
         deps
     }
 
+    pub fn is_versions_available(&self, name: &str) -> bool {
+        if let Some(_) = &self.metadata.get(name) {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn get_dep_versions(&self, name: &str) -> Option<Vec<String>> {
-        None
-        // if let Some(dpg) = &self.config.groups.get(group) {
-        //     if let Some(dep) = dpg.get(name) {
-        //         return Some(dep);
-        //     }
-        // }
-        // None
+        if let Some(meta) = &self.metadata.get(name) {
+            Some(meta.versions.clone().into_iter().map(|x| x.to_string()).collect())
+        } else {
+            None
+        }
     }
 
     pub fn get_current_version(&self, name: &str) -> String {

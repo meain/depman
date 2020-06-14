@@ -90,7 +90,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 app.render_tabs(&mut f, tabl);
                 app.render_dependency_info(&mut f, chunks[1]);
-                // app.render_version_selector(&mut f);
+                app.render_version_selector(&mut f);
                 app.render_help_menu(&mut f);
                 app.display_message(&mut f);
                 app.display_search_input(&mut f);

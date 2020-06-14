@@ -88,10 +88,16 @@ impl App {
         }
     }
     fn get_current_version_strings(&self) -> Vec<String> {
-        vec![]
-        // if let Some(dep) = project.get_dep_versions(&dep_names[0]) {
-        //     dep_versions = dep.into_iter().map(|x| x.to_string()).collect();
-        // }
+        let current_dep = self.get_current_dep_name();
+        match current_dep {
+            Some(dep) => {
+                match self.project.get_dep_versions(&dep) {
+                    Some(v) => v,
+                    None => vec![]
+                }
+            }
+            _ => vec![]
+        }
     }
     pub fn set_state(&mut self, state: AppState) {
         self.tabs.index = state.tab;
@@ -165,7 +171,7 @@ impl App {
     }
     pub fn toggle_versions_menu(&mut self) {
         if let PopupKind::None = self.popup {
-            if !self.is_versions_available() {
+            if !self.project.is_versions_available(&self.get_current_dep_name().unwrap()) {
                 self.message = Some("No versions available".to_string());
                 self.popup = PopupKind::Message;
                 return;
@@ -310,18 +316,6 @@ impl App {
             }
         } else {
             None
-        }
-    }
-
-    pub fn is_versions_available(&mut self) -> bool {
-        if let Some(dep_name) = self.get_current_dep_name() {
-            let versions = self.project.get_dep_versions(&dep_name);
-            match versions {
-                Some(av) => av.len() > 0,
-                None => false,
-            }
-        } else {
-            false
         }
     }
 
@@ -474,60 +468,60 @@ impl App {
         }
     }
 
-    // pub fn render_version_selector<B: Backend>(&mut self, f: &mut Frame<B>) {
-    //     if let Some(d) = self.get_current_dep() {
-    //         if let PopupKind::Versions = self.popup {
-    //             let mut items = vec![];
-    //             for item in self.versions.items.iter() {
-    //                 if &d.get_current_version() == item && &d.get_latest_semver_version() == item {
-    //                     items.push(Text::styled(
-    //                         format!("{} current&latest-semver", item),
-    //                         Style::default().fg(Color::Cyan),
-    //                     ));
-    //                 } else if &d.get_current_version() == item {
-    //                     items.push(Text::styled(
-    //                         format!("{} current", item),
-    //                         Style::default().fg(Color::Cyan),
-    //                     ));
-    //                 } else if &d.get_latest_semver_version() == item {
-    //                     items.push(Text::styled(
-    //                         format!("{} latest-semver", item),
-    //                         Style::default().fg(Color::Green),
-    //                     ));
-    //                 } else {
-    //                     items.push(Text::raw(item));
-    //                 }
-    //             }
-    //
-    //             let mut color = Color::White;
-    //             let current_item = self.versions.state.selected();
-    //             if let Some(ci) = current_item {
-    //                 let item = &self.versions.items[ci];
-    //                 if &d.get_current_version() == item {
-    //                     color = Color::Cyan;
-    //                 } else if &d.get_latest_semver_version() == item {
-    //                     color = Color::Green;
-    //                 }
-    //             }
-    //
-    //             let block = List::new(items.into_iter())
-    //                 .block(
-    //                     Block::default()
-    //                         .title("Versions")
-    //                         .borders(Borders::ALL)
-    //                         .border_type(BorderType::Rounded)
-    //                         .border_style(Style::default().fg(Color::Red)),
-    //                 )
-    //                 .style(Style::default())
-    //                 .highlight_style(Style::default().fg(color))
-    //                 .highlight_symbol("■ "); // ║ ▓ ■
-    //
-    //             let area = centered_rect(50, 50, f.size());
-    //             f.render_widget(Clear, area); //this clears out the background
-    //             f.render_stateful_widget(block, area, &mut self.versions.state);
-    //         }
-    //     }
-    // }
+    pub fn render_version_selector<B: Backend>(&mut self, f: &mut Frame<B>) {
+        if let Some(d) = self.get_current_dep_name() {
+            if let PopupKind::Versions = self.popup {
+                let mut items = vec![];
+                for item in self.versions.items.iter() {
+                    if &self.project.get_current_version(&d) == item && &self.project.get_semver_version(&d) == item {
+                        items.push(Text::styled(
+                            format!("{} current&latest-semver", item),
+                            Style::default().fg(Color::Cyan),
+                        ));
+                    } else if &self.project.get_current_version(&d) == item {
+                        items.push(Text::styled(
+                            format!("{} current", item),
+                            Style::default().fg(Color::Cyan),
+                        ));
+                    } else if &self.project.get_semver_version(&d) == item {
+                        items.push(Text::styled(
+                            format!("{} latest-semver", item),
+                            Style::default().fg(Color::Green),
+                        ));
+                    } else {
+                        items.push(Text::raw(item));
+                    }
+                }
+
+                let mut color = Color::White;
+                let current_item = self.versions.state.selected();
+                if let Some(ci) = current_item {
+                    let item = &self.versions.items[ci];
+                    if &self.project.get_current_version(&d) == item {
+                        color = Color::Cyan;
+                    } else if &self.project.get_semver_version(&d) == item {
+                        color = Color::Green;
+                    }
+                }
+
+                let block = List::new(items.into_iter())
+                    .block(
+                        Block::default()
+                            .title("Versions")
+                            .borders(Borders::ALL)
+                            .border_type(BorderType::Rounded)
+                            .border_style(Style::default().fg(Color::Red)),
+                    )
+                    .style(Style::default())
+                    .highlight_style(Style::default().fg(color))
+                    .highlight_symbol("■ "); // ║ ▓ ■
+
+                let area = centered_rect(50, 50, f.size());
+                f.render_widget(Clear, area); //this clears out the background
+                f.render_stateful_widget(block, area, &mut self.versions.state);
+            }
+        }
+    }
 
     pub fn get_current_version_index(&self) -> Option<usize> {
         if let Some(d) = &self.get_current_dep_name() {
