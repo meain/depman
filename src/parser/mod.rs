@@ -1,14 +1,13 @@
 pub mod determinekind;
 mod parsers;
 
+use futures::future::try_join_all;
 use semver::{Version, VersionReq};
 use std::collections::hash_map::HashMap;
 use std::collections::BTreeMap;
 use std::string::ToString;
-use futures::future::try_join_all;
 
 use determinekind::ParserKind;
-
 
 pub enum UpgradeType {
     None,
@@ -53,12 +52,18 @@ impl Project {
     pub async fn parse(folder: &str, kind: &ParserKind) -> Project {
         let config = parsers::parse_config(folder, kind);
         let lockfile = parsers::parse_lockfile(folder, kind);
-        let dep_names: Vec<String> = config.groups.keys().into_iter()
+        let dep_names: Vec<String> = config
+            .groups
+            .keys()
+            .into_iter()
             .flat_map(|x| config.groups[x].keys())
             .map(|x| x.to_string())
             .collect();
 
-        let fetchers = dep_names.clone().into_iter().map(|x| parsers::fetch_dep_info(x.to_string(), kind));
+        let fetchers = dep_names
+            .clone()
+            .into_iter()
+            .map(|x| parsers::fetch_dep_info(x.to_string(), kind));
         let results = try_join_all(fetchers).await.unwrap_or(vec![]);
         let mut metadata = HashMap::new();
         if &results.len() == &dep_names.len() {
@@ -67,7 +72,7 @@ impl Project {
                 let mut api_data = results[count].clone();
                 api_data.versions.sort();
                 api_data.versions = api_data.versions.into_iter().rev().collect();
-                metadata.insert(item,api_data);
+                metadata.insert(item, api_data);
                 count += 1;
             }
         }
@@ -75,7 +80,7 @@ impl Project {
         Project {
             config,
             lockfile,
-            metadata
+            metadata,
         }
     }
     // pub async fn search_deps(kind: &ParserKind, query: &str) {}
@@ -108,7 +113,7 @@ impl Project {
     pub fn get_dep_versions(&self, name: &str) -> Option<&Vec<Version>> {
         if let Some(meta) = &self.metadata.get(name) {
             Some(&meta.versions)
-            // Some(meta.versions.clone().into_iter().map(|x| x.to_string()).collect())
+        // Some(meta.versions.clone().into_iter().map(|x| x.to_string()).collect())
         } else {
             None
         }
@@ -122,38 +127,62 @@ impl Project {
         let specified_version = self.get_specified_version(&group, &name);
         let versions = self.get_dep_versions(&name);
         if let Some(sv) = specified_version {
-        if let Some(vers) = versions {
-            if let Some(cv) = current_version {
-                let current_pos = vers.iter().position(|r| &r == &cv);
-                if let Some(cp) = current_pos {
-                    let mut last = cv;
-                    for i in (0..cp).rev() {
-                        if sv.matches(&vers[i]) {
-                            last = &vers[i];
-                        } else {
-                            break;
+            if let Some(vers) = versions {
+                if let Some(cv) = current_version {
+                    let current_pos = vers.iter().position(|r| &r == &cv);
+                    if let Some(cp) = current_pos {
+                        let mut last = cv;
+                        for i in (0..cp).rev() {
+                            if sv.matches(&vers[i]) {
+                                last = &vers[i];
+                            } else {
+                                break;
+                            }
                         }
+                        return Some(last);
                     }
-                    return Some(last);
                 }
             }
-        }
         }
         None
     }
     pub fn get_specified_version(&self, group: &str, name: &str) -> Option<&VersionReq> {
-        self.config.groups.get(group).unwrap().get(name).unwrap().as_ref()
+        self.config
+            .groups
+            .get(group)
+            .unwrap()
+            .get(name)
+            .unwrap()
+            .as_ref()
     }
     pub fn get_latest_version(&self, name: &str) -> Option<&Version> {
         let versions = self.get_dep_versions(&name);
         match versions {
             Some(v) => Some(&v[0]),
-            None => None
+            None => None,
         }
     }
 
-
     pub fn get_upgrade_type(&self, group: &str, name: &str) -> UpgradeType {
+        let current_version = self.get_current_version(&name);
+        let specified_version = self.get_specified_version(&group, &name);
+        let semver_version = self.get_semver_version(&group, &name);
+        let latest_version = self.get_latest_version(&name);
+        if let Some(cv) = &current_version {
+            if let Some(sv) = &semver_version {
+                if let Some(lv) = &latest_version {
+                    if cv.major < sv.major {
+                        return UpgradeType::Major;
+                    } else if cv.minor < sv.minor {
+                        return UpgradeType::Minor;
+                    } else if cv.patch < sv.patch {
+                        return UpgradeType::Patch;
+                    } else if lv > cv {
+                        return UpgradeType::Breaking;
+                    }
+                }
+            }
+        }
         UpgradeType::None
     }
 
