@@ -11,6 +11,11 @@ use tui::terminal::Frame;
 use crate::parser::determinekind::ParserKind;
 use crate::parser::{stringify, Project, UpgradeType};
 
+pub struct AppState {
+    tab: usize,
+    dep: Option<usize>,
+}
+
 #[derive(Debug)]
 pub struct InstallCandidate {
     pub name: String,
@@ -229,6 +234,38 @@ impl App {
                 self.versions.state.select(self.get_current_version_index());
             }
         }
+    }
+
+    pub fn get_state(&self) -> AppState {
+        let dep = match self.items.state.selected() {
+            Some(m) => match m {
+                0 => {
+                    if self.items.items.len() == 0 {
+                        None
+                    } else {
+                        Some(0)
+                    }
+                }
+                m => Some(m - 1),
+            },
+            None => None,
+        };
+        AppState {
+            tab: self.tabs.index,
+            dep,
+        }
+    }
+
+    pub fn set_state(&mut self, state: AppState) {
+        self.tabs.index = state.tab;
+        let dep_names = self
+            .project
+            .get_deps_in_group(&self.tabs.titles[self.tabs.index]);
+        self.items = StatefulList::with_items(dep_names);
+        self.items.state.select(state.dep);
+        let dep_versions = self.get_current_version_strings();
+        self.versions = StatefulList::with_items(dep_versions);
+        self.versions.state.select(self.get_current_version_index());
     }
 
     pub fn delete_current_dep(&self) -> bool {

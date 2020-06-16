@@ -70,8 +70,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         loop {
             if reload {
                 let project = project.reparse(&folder, &kind).await;
+                let state = app.get_state();
                 app = App::new(project, kind.clone(), folder);
-                app.next();
+                app.set_state(state);
                 reload = false;
                 continue;
             }
