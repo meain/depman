@@ -71,6 +71,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             if reload {
                 let project = project.reparse(&folder, &kind).await;
                 app = App::new(project, kind.clone(), folder);
+                app.next();
                 reload = false;
                 continue;
             }
