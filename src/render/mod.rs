@@ -91,7 +91,7 @@ impl App {
         let current_dep = self.get_current_dep_name();
         match current_dep {
             Some(dep) => match self.project.get_dep_versions(&dep) {
-                Some(v) => v,
+                Some(v) => v.clone().into_iter().map(|x| x.to_string()).collect(),
                 None => vec![],
             },
             _ => vec![],
@@ -447,7 +447,7 @@ impl App {
                 results.push(Text::raw(format!(
                     "{} {}",
                     item,
-                    self.project.get_current_version(item)
+                    &stringify(&self.project.get_current_version(item))
                 )))
             }
             let block = List::new(results.into_iter())
@@ -469,23 +469,24 @@ impl App {
     }
 
     pub fn render_version_selector<B: Backend>(&mut self, f: &mut Frame<B>) {
+        let current_tab = &self.get_current_group_name().unwrap();
         if let Some(d) = self.get_current_dep_name() {
             if let PopupKind::Versions = self.popup {
                 let mut items = vec![];
                 for item in self.versions.items.iter() {
-                    if &self.project.get_current_version(&d) == item
-                        && &self.project.get_semver_version(&d) == item
+                    if &stringify(&self.project.get_current_version(&d)) == item
+                        && &stringify(&self.project.get_semver_version(&current_tab, &d)) == item
                     {
                         items.push(Text::styled(
                             format!("{} current&latest-semver", item),
                             Style::default().fg(Color::Cyan),
                         ));
-                    } else if &self.project.get_current_version(&d) == item {
+                    } else if &stringify(&self.project.get_current_version(&d)) == item {
                         items.push(Text::styled(
                             format!("{} current", item),
                             Style::default().fg(Color::Cyan),
                         ));
-                    } else if &self.project.get_semver_version(&d) == item {
+                    } else if &stringify(&self.project.get_semver_version(&current_tab, &d)) == item {
                         items.push(Text::styled(
                             format!("{} latest-semver", item),
                             Style::default().fg(Color::Green),
@@ -499,9 +500,9 @@ impl App {
                 let current_item = self.versions.state.selected();
                 if let Some(ci) = current_item {
                     let item = &self.versions.items[ci];
-                    if &self.project.get_current_version(&d) == item {
+                    if &stringify(&self.project.get_current_version(&d)) == item {
                         color = Color::Cyan;
-                    } else if &self.project.get_semver_version(&d) == item {
+                    } else if &stringify(&self.project.get_semver_version(&current_tab, &d)) == item {
                         color = Color::Green;
                     }
                 }
@@ -528,7 +529,7 @@ impl App {
     pub fn get_current_version_index(&self) -> Option<usize> {
         if let Some(d) = &self.get_current_dep_name() {
             for (i, item) in self.versions.items.iter().enumerate() {
-                if &self.project.get_current_version(d) == item {
+                if &stringify(&self.project.get_current_version(&d)) == item {
                     return Some(i);
                 }
             }
@@ -561,11 +562,11 @@ impl App {
                     stringify(&self.project.get_specified_version(&current_tab, &d))
                 )),
                 Text::styled("Current Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", self.project.get_current_version(&d))),
+                Text::raw(format!(" {}\n", stringify(&self.project.get_current_version(&d)))),
                 Text::styled("Upgradeable Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", self.project.get_semver_version(&d))),
+                Text::raw(format!(" {}\n", stringify(&self.project.get_semver_version(&current_tab, &d)))),
                 Text::styled("Latest Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", self.project.get_latest_version(&d))),
+                Text::raw(format!(" {}\n", stringify(&self.project.get_latest_version(&d)))),
                 Text::styled("Author", Style::default().fg(Color::Green)),
                 Text::raw(format!(" {}\n", stringify(&self.project.get_author(&d)))),
                 Text::styled("Homepage", Style::default().fg(Color::Magenta)),
@@ -622,8 +623,8 @@ impl App {
                     format!(
                         "{} ({} > {})  {}",
                         item,
-                        self.project.get_current_version(&item),
-                        self.project.get_semver_version(&item),
+                        stringify(&self.project.get_current_version(&item)),
+                        stringify(&self.project.get_semver_version(&current_tab, &item)),
                         breaking_changes_string
                     ),
                     Style::default().fg(get_version_color(upgrade_type)),

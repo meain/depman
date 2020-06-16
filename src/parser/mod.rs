@@ -10,7 +10,6 @@ use futures::future::try_join_all;
 use determinekind::ParserKind;
 
 
-
 pub enum UpgradeType {
     None,
     Patch,
@@ -58,18 +57,17 @@ impl Project {
             .flat_map(|x| config.groups[x].keys())
             .map(|x| x.to_string())
             .collect();
-        // let mut fetchers = vec![];
-        // for item in dep_names {
-        //     fetchers.push(parsers::fetch_dep_info(item.to_string(), kind));
-        // }
+
         let fetchers = dep_names.clone().into_iter().map(|x| parsers::fetch_dep_info(x.to_string(), kind));
         let results = try_join_all(fetchers).await.unwrap_or(vec![]);
         let mut metadata = HashMap::new();
-
         if &results.len() == &dep_names.len() {
             let mut count = 0;
             for item in dep_names {
-                metadata.insert(item, results[count].clone());
+                let mut api_data = results[count].clone();
+                api_data.versions.sort();
+                api_data.versions = api_data.versions.into_iter().rev().collect();
+                metadata.insert(item,api_data);
                 count += 1;
             }
         }
@@ -107,25 +105,51 @@ impl Project {
         }
     }
 
-    pub fn get_dep_versions(&self, name: &str) -> Option<Vec<String>> {
+    pub fn get_dep_versions(&self, name: &str) -> Option<&Vec<Version>> {
         if let Some(meta) = &self.metadata.get(name) {
-            Some(meta.versions.clone().into_iter().map(|x| x.to_string()).collect())
+            Some(&meta.versions)
+            // Some(meta.versions.clone().into_iter().map(|x| x.to_string()).collect())
         } else {
             None
         }
     }
 
-    pub fn get_current_version(&self, name: &str) -> String {
-        stringify(&self.lockfile.get(name))
+    pub fn get_current_version(&self, name: &str) -> Option<&Version> {
+        self.lockfile.get(name)
     }
-    pub fn get_semver_version(&self, name: &str) -> String {
-        "nio".to_string()  // TODO
+    pub fn get_semver_version(&self, group: &str, name: &str) -> Option<&Version> {
+        let current_version = self.get_current_version(&name);
+        let specified_version = self.get_specified_version(&group, &name);
+        let versions = self.get_dep_versions(&name);
+        if let Some(sv) = specified_version {
+        if let Some(vers) = versions {
+            if let Some(cv) = current_version {
+                let current_pos = vers.iter().position(|r| &r == &cv);
+                if let Some(cp) = current_pos {
+                    let mut last = cv;
+                    for i in cp..0 {
+                        if sv.matches(&vers[i]) {
+                            last = &vers[i];
+                        } else {
+                            break;
+                        }
+                    }
+                    return Some(last);
+                }
+            }
+        }
+        }
+        None
     }
-    pub fn get_specified_version(&self, group: &str, name: &str) -> Option<VersionReq> {
-        self.config.groups.get(group).unwrap().get(name).unwrap().clone()
+    pub fn get_specified_version(&self, group: &str, name: &str) -> Option<&VersionReq> {
+        self.config.groups.get(group).unwrap().get(name).unwrap().as_ref()
     }
-    pub fn get_latest_version(&self, name: &str) -> String {
-        "nio".to_string()  // TODO
+    pub fn get_latest_version(&self, name: &str) -> Option<&Version> {
+        let versions = self.get_dep_versions(&name);
+        match versions {
+            Some(v) => Some(&v[0]),
+            None => None
+        }
     }
 
 
