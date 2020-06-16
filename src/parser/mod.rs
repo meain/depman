@@ -128,6 +128,7 @@ impl Project {
                 if let Some(cp) = current_pos {
                     let mut last = cv;
                     for i in cp..0 {
+                        println!("i: {:?}", i);
                         if sv.matches(&vers[i]) {
                             last = &vers[i];
                         } else {
