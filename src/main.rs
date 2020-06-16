@@ -61,21 +61,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
         terminal.hide_cursor()?;
 
         let mut events = Events::new();
-        let mut app = App::new(project, kind, folder);
+        let mut app = App::new(project.clone(), kind.clone(), folder);
         app.next();
 
         let mut search_in_next_iter: Option<String> = None;
-        let mut reload = true;
+        let mut reload = false;
 
         loop {
-            // if reload {
-            //     let config = Config::parse(folder, kind).await;
-            //     let state = app.get_state();
-            //     app = App::new(config, kind);
-            //     app.set_state(state);  // TODO: will have to inject fetched result back in
-            //     reload = false;
-            //     continue;
-            // }
+            if reload {
+                let project = project.reparse(&folder, &kind).await;
+                app = App::new(project, kind.clone(), folder);
+                reload = false;
+                continue;
+            }
             terminal.draw(|mut f| {
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)

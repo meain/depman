@@ -18,6 +18,7 @@ pub enum UpgradeType {
 }
 
 type DependencyGroup = BTreeMap<String, Option<VersionReq>>;
+#[derive(Clone)]
 pub struct Config {
     pub name: Option<String>,
     pub version: Option<Version>,
@@ -34,6 +35,7 @@ struct DepInfo {
 }
 type Lockfile = HashMap<String, Version>;
 type MetaData = HashMap<String, DepInfo>;
+#[derive(Clone)]
 pub struct Project {
     config: Config,
     lockfile: Lockfile,
@@ -83,6 +85,44 @@ impl Project {
             metadata,
         }
     }
+
+    pub async fn reparse(&self, folder: &str, kind: &ParserKind) -> Project {
+        let config = parsers::parse_config(folder, kind);
+        let lockfile = parsers::parse_lockfile(folder, kind);
+
+        let dep_names: Vec<String> = config
+            .groups
+            .keys()
+            .into_iter()
+            .flat_map(|x| config.groups[x].keys())
+            .map(|x| x.to_string())
+            .filter(|x| !self.metadata.keys().into_iter().any(|e| e == x))
+            .collect();
+
+        let fetchers = dep_names
+            .clone()
+            .into_iter()
+            .map(|x| parsers::fetch_dep_info(x.to_string(), kind));
+        let results = try_join_all(fetchers).await.unwrap_or(vec![]);
+        let mut metadata = HashMap::new();
+        if &results.len() == &dep_names.len() {
+            let mut count = 0;
+            for item in dep_names {
+                let mut api_data = results[count].clone();
+                api_data.versions.sort();
+                api_data.versions = api_data.versions.into_iter().rev().collect();
+                metadata.insert(item, api_data);
+                count += 1;
+            }
+        }
+        metadata.extend(self.metadata.clone());
+        Project {
+            config,
+            lockfile,
+            metadata,
+        }
+    }
+
     // pub async fn search_deps(kind: &ParserKind, query: &str) {}
     pub fn get_groups(&self) -> Vec<String> {
         let mut groups = vec![];
