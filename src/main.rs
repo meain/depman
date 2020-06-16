@@ -61,7 +61,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         terminal.hide_cursor()?;
 
         let mut events = Events::new();
-        let mut app = App::new(project, kind);
+        let mut app = App::new(project, kind, folder);
         app.next();
 
         let mut search_in_next_iter: Option<String> = None;
@@ -139,11 +139,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 app.popup = PopupKind::SearchInput;
                             }
                             Key::Char('D') => {
-                                // let status = Config::delete_dep(app.get_current_dep(), app.kind, folder);
-                                // if status {
-                                //     app.set_message("Dependency removed");
-                                //     reload = true;
-                                // }
+                                let status = app.delete_current_dep();
+                                if status {
+                                    app.set_message("Dependency removed");
+                                    reload = true;
+                                }
                             }
                             Key::Char('o') => app.open_homepage(),
                             Key::Char('p') => app.open_repository(),

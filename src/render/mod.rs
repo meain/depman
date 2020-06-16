@@ -28,7 +28,8 @@ pub enum PopupKind {
     None,
 }
 pub struct App {
-    pub kind: ParserKind,
+    folder: String, // TODO: Change this to path
+    kind: ParserKind,
     project: Project,
     tabs: TabsState,
     items: StatefulList<String>,
@@ -41,7 +42,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(project: Project, kind: ParserKind) -> App {
+    pub fn new(project: Project, kind: ParserKind, folder: &str) -> App {
         let dep_kinds = project.get_groups();
         let dep_names = project.get_deps_in_group(&dep_kinds[0]);
         let mut dep_versions = vec![];
@@ -51,6 +52,7 @@ impl App {
             }
         }
         App {
+            folder: folder.to_string(),
             kind,
             project,
             tabs: TabsState::new(dep_kinds),
@@ -226,6 +228,16 @@ impl App {
                 self.versions = StatefulList::with_items(dep_versions);
                 self.versions.state.select(self.get_current_version_index());
             }
+        }
+    }
+
+    pub fn delete_current_dep(&self) -> bool {
+        let current_tab = &self.get_current_group_name().unwrap();
+        let current_dep = self.get_current_dep_name();
+        if let Some(cd) = &current_dep {
+            self.project.delete_dep(&self.kind, &self.folder, &current_tab, &cd)
+        } else {
+            false
         }
     }
 
@@ -441,7 +453,8 @@ impl App {
                             format!("{} current", item),
                             Style::default().fg(Color::Cyan),
                         ));
-                    } else if &stringify(&self.project.get_semver_version(&current_tab, &d)) == item {
+                    } else if &stringify(&self.project.get_semver_version(&current_tab, &d)) == item
+                    {
                         items.push(Text::styled(
                             format!("{} latest-semver", item),
                             Style::default().fg(Color::Green),
@@ -457,7 +470,8 @@ impl App {
                     let item = &self.versions.items[ci];
                     if &stringify(&self.project.get_current_version(&d)) == item {
                         color = Color::Cyan;
-                    } else if &stringify(&self.project.get_semver_version(&current_tab, &d)) == item {
+                    } else if &stringify(&self.project.get_semver_version(&current_tab, &d)) == item
+                    {
                         color = Color::Green;
                     }
                 }
@@ -517,11 +531,20 @@ impl App {
                     stringify(&self.project.get_specified_version(&current_tab, &d))
                 )),
                 Text::styled("Current Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", stringify(&self.project.get_current_version(&d)))),
+                Text::raw(format!(
+                    " {}\n",
+                    stringify(&self.project.get_current_version(&d))
+                )),
                 Text::styled("Upgradeable Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", stringify(&self.project.get_semver_version(&current_tab, &d)))),
+                Text::raw(format!(
+                    " {}\n",
+                    stringify(&self.project.get_semver_version(&current_tab, &d))
+                )),
                 Text::styled("Latest Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", stringify(&self.project.get_latest_version(&d)))),
+                Text::raw(format!(
+                    " {}\n",
+                    stringify(&self.project.get_latest_version(&d))
+                )),
                 Text::styled("Author", Style::default().fg(Color::Green)),
                 Text::raw(format!(" {}\n", stringify(&self.project.get_author(&d)))),
                 Text::styled("Homepage", Style::default().fg(Color::Magenta)),

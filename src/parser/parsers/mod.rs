@@ -29,3 +29,11 @@ pub async fn fetch_dep_info(name: String, kind: &ParserKind) ->Result<DepInfo, B
         _ => unreachable!()
     }
 }
+
+pub fn delete_dep(kind: &ParserKind, folder: &str, group: &str, name: &str) -> bool {
+    match kind {
+        ParserKind::RustCargo => RustCargo::delete_dep(folder, group, name),
+        _ => unreachable!()
+    }
+    true // TODO: check for error and return proper
+}

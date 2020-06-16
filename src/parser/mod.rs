@@ -200,4 +200,8 @@ impl Project {
     pub fn get_description(&self, name: &str) -> Option<String> {
         self.metadata.get(name).unwrap().description.clone()
     }
+
+    pub fn delete_dep(&self, kind: &ParserKind, folder: &str, group: &str, name: &str) -> bool {
+        parsers::delete_dep(kind, folder, group, name)
+    }
 }

@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use toml::Value;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
+use toml_edit::Document;
 
 use crate::parser::{Config, DependencyGroup, Lockfile, DepInfo};
 
@@ -138,4 +139,11 @@ impl RustCargo {
         })
     }
 
+    pub fn delete_dep(folder: &str, group: &str, name: &str) {
+        let path_string = format!("{}/Cargo.toml", folder);
+        let file_contents = std::fs::read_to_string(&path_string).unwrap();
+        let mut doc = file_contents.parse::<Document>().expect("Invalid config file");
+        doc[group][name] = toml_edit::Item::None;
+        std::fs::write(&path_string, doc.to_string()).unwrap();
+    }
 }
