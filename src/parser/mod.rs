@@ -127,9 +127,8 @@ impl Project {
                 let current_pos = vers.iter().position(|r| &r == &cv);
                 if let Some(cp) = current_pos {
                     let mut last = cv;
-                    for i in cp..0 {
+                    for i in (0..cp).rev() {
                         if sv.matches(&vers[i]) {
-                            unreachable!();
                             last = &vers[i];
                         } else {
                             break;
