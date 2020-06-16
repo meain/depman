@@ -110,7 +110,6 @@ impl RustCargo {
                 }
             }
         }
-        println!("packages: {:?}", packages.keys().len());
         packages
     }
 
