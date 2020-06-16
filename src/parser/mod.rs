@@ -165,7 +165,6 @@ impl Project {
 
     pub fn get_upgrade_type(&self, group: &str, name: &str) -> UpgradeType {
         let current_version = self.get_current_version(&name);
-        let specified_version = self.get_specified_version(&group, &name);
         let semver_version = self.get_semver_version(&group, &name);
         let latest_version = self.get_latest_version(&name);
         if let Some(cv) = &current_version {

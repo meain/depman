@@ -18,10 +18,6 @@ pub struct InstallCandidate {
     pub kind: String,
 }
 
-pub struct AppState {
-    tab: usize,
-    dep: Option<usize>,
-}
 #[derive(Debug)]
 pub enum PopupKind {
     Message,
@@ -68,25 +64,6 @@ impl App {
         }
     }
 
-    pub fn get_state(&self) -> AppState {
-        let dep = match self.items.state.selected() {
-            Some(m) => match m {
-                0 => {
-                    if self.items.items.len() == 0 {
-                        None
-                    } else {
-                        Some(0)
-                    }
-                }
-                m => Some(m - 1),
-            },
-            None => None,
-        };
-        AppState {
-            tab: self.tabs.index,
-            dep,
-        }
-    }
     fn get_current_version_strings(&self) -> Vec<String> {
         let current_dep = self.get_current_dep_name();
         match current_dep {
@@ -97,28 +74,6 @@ impl App {
             _ => vec![],
         }
     }
-    pub fn set_state(&mut self, state: AppState) {
-        self.tabs.index = state.tab;
-        let dep_names = self
-            .project
-            .get_deps_in_group(&self.tabs.titles[self.tabs.index]);
-        self.items = StatefulList::with_items(dep_names);
-        self.items.state.select(state.dep);
-        let dep_versions = self.get_current_version_strings();
-        self.versions = StatefulList::with_items(dep_versions);
-        self.versions.state.select(self.get_current_version_index());
-    }
-
-    // pub fn get_current_dep(&self) -> Option<Dep> {
-    //     if &self.tabs.index < &self.tabs.titles.len() {
-    //         let group = &self.tabs.titles[self.tabs.index];
-    //         if self.items.items.len() > 0 {
-    //             self.project.get_dep(&self.items.get_item())
-    //         } else {
-    //             None
-    //         }
-    //     }
-    // }
 
     pub fn get_selected_version(&mut self) -> String {
         self.versions.get_item()
