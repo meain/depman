@@ -121,8 +121,8 @@ impl Project {
     pub fn get_semver_version(&self, name: &str) -> String {
         "nio".to_string()  // TODO
     }
-    pub fn get_specified_version(&self, group: &str, name: &str) -> String {
-        stringify(self.config.groups.get(group).unwrap().get(name).unwrap())
+    pub fn get_specified_version(&self, group: &str, name: &str) -> Option<VersionReq> {
+        self.config.groups.get(group).unwrap().get(name).unwrap().clone()
     }
     pub fn get_latest_version(&self, name: &str) -> String {
         "nio".to_string()  // TODO

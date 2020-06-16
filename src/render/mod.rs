@@ -9,7 +9,7 @@ use std::process::Command;
 use tui::terminal::Frame;
 
 use crate::parser::determinekind::ParserKind;
-use crate::parser::{Project, UpgradeType, stringify};
+use crate::parser::{stringify, Project, UpgradeType};
 
 #[derive(Debug)]
 pub struct InstallCandidate {
@@ -558,7 +558,7 @@ impl App {
                 Text::styled("Specified Version", Style::default().fg(Color::Blue)),
                 Text::raw(format!(
                     " {}\n",
-                    self.project.get_specified_version(&current_tab, &d)
+                    stringify(&self.project.get_specified_version(&current_tab, &d))
                 )),
                 Text::styled("Current Version", Style::default().fg(Color::Blue)),
                 Text::raw(format!(" {}\n", self.project.get_current_version(&d))),
@@ -571,11 +571,17 @@ impl App {
                 Text::styled("Homepage", Style::default().fg(Color::Magenta)),
                 Text::raw(format!(" {}\n", stringify(&self.project.get_homepage(&d)))),
                 Text::styled("Package repo:", Style::default().fg(Color::Magenta)),
-                Text::raw(format!(" {}\n", stringify(&self.project.get_repository(&d)))),
+                Text::raw(format!(
+                    " {}\n",
+                    stringify(&self.project.get_repository(&d))
+                )),
                 Text::styled("License", Style::default().fg(Color::Yellow)),
                 Text::raw(format!(" {}\n", stringify(&self.project.get_license(&d)))),
                 Text::styled("Description", Style::default().fg(Color::Cyan)),
-                Text::raw(format!(" {}\n", stringify(&self.project.get_description(&d)))),
+                Text::raw(format!(
+                    " {}\n",
+                    stringify(&self.project.get_description(&d))
+                )),
             ];
             let block = Paragraph::new(text.iter())
                 .block(
