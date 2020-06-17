@@ -153,7 +153,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             }
                             Key::Char('v') | Key::Char(' ') => app.toggle_versions_menu(),
                             Key::Left | Key::Char('h') => app.tab_previous(),
-                            Key::Right | Key::Char('l') => app.tab_next(),
+                            Key::Right | Key::Char('l') | Key::Char('\t') => app.tab_next(),
                             Key::Down | Key::Char('j') => app.next(),
                             Key::Up | Key::Char('k') => app.previous(),
                             Key::Char('\n') => {
