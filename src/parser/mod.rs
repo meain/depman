@@ -1,33 +1,55 @@
-mod javascriptnpm;
-mod rustcargo;
+pub mod determinekind;
+mod parsers;
 
-use crate::render::InstallCandidate;
-use serde::{Deserialize, Serialize};
+use futures::future::try_join_all;
+use semver::{Version, VersionReq};
+use std::collections::hash_map::HashMap;
 use std::collections::BTreeMap;
-use std::error::Error;
+use std::string::ToString;
 
-use async_trait::async_trait;
-use javascriptnpm::JavascriptNpm;
-use rustcargo::RustCargo;
+use determinekind::ParserKind;
+use crate::render::InstallCandidate;
 
-#[async_trait]
-pub trait Parser {
-    async fn parse(root: &str) -> Config;
-    fn install_dep(dep: InstallCandidate, root: &str);
-    fn delete_dep(dep: Dep, root: &str);
-    async fn search_deps(name: &str) -> Result<Vec<SearchDep>, Box<dyn Error>>;
-}
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone)]
-pub enum ParserKind {
-    RustCargo,
-    JavascriptNpm,
+pub enum UpgradeType {
+    None,
+    Patch,
+    Minor,
+    Major,
+    Breaking,
 }
 
 #[derive(Debug, Clone)]
 pub struct SearchDep {
     pub name: String,
     pub version: String,
+    // TODO: add in more items like homepage, repo, author etc
+}
+
+type DependencyGroup = BTreeMap<String, Option<VersionReq>>;
+#[derive(Clone)]
+pub struct Config {
+    pub name: Option<String>,
+    pub version: Option<Version>,
+    pub groups: BTreeMap<String, DependencyGroup>,
+}
+#[derive(Debug, Clone)]
+pub struct DepInfo {
+    author: Option<Author>,
+    homepage: Option<String>,
+    repository: Option<String>, // package repo
+    license: Option<String>,
+    description: Option<String>,
+    versions: Vec<Version>,
+}
+type Lockfile = HashMap<String, Version>;
+type MetaData = HashMap<String, DepInfo>;
+#[derive(Clone)]
+pub struct Project {
+    config: Config,
+    lockfile: Lockfile,
+    metadata: MetaData,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -49,164 +71,218 @@ impl Author {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Dep {
-    pub name: String,
-    pub kind: String,
-    pub author: Option<Author>,
-    pub description: Option<String>,
-    pub homepage: Option<String>,
-    pub package_repo: String,
-    pub license: Option<String>,
-    pub specified_version: Option<semver::VersionReq>, // from config files
-    pub current_version: Option<semver::Version>,      // parsed from lockfiles
-    pub available_versions: Option<Vec<semver::Version>>,
-    pub latest_version: Option<semver::Version>,
-    pub latest_semver_version: Option<semver::Version>,
+pub fn stringify<T: ToString>(value: &Option<T>) -> String {
+    match value {
+        Some(v) => v.to_string(),
+        None => "-".to_string(),
+    }
 }
 
-pub enum UpgradeType {
-    None,
-    Patch,
-    Minor,
-    Major,
-}
+// Mostly for derived values
+impl Project {
+    pub async fn parse(folder: &str, kind: &ParserKind) -> Project {
+        let config = parsers::parse_config(folder, kind);
+        let lockfile = parsers::parse_lockfile(folder, kind);
+        let dep_names: Vec<String> = config
+            .groups
+            .keys()
+            .into_iter()
+            .flat_map(|x| config.groups[x].keys())
+            .map(|x| x.to_string())
+            .collect();
 
-impl Dep {
-    pub fn get_author(&self) -> String {
-        self.author.as_ref().map_or("-".to_string(), |x| x.to_string())
-    }
-    pub fn get_description(&self) -> String {
-        self.description.as_ref().map_or("-".to_string(), |x| x.to_string())
-    }
-    pub fn get_homepage(&self) -> String {
-        self.homepage.as_ref().map_or("-".to_string(), |x| x.to_string())
-    }
-    pub fn get_package_repo(&self) -> String {
-        self.package_repo.to_string()
-    }
-    pub fn get_license(&self) -> String {
-        self.license.as_ref().map_or("-".to_string(), |x| x.to_string())
+        let fetchers = dep_names
+            .clone()
+            .into_iter()
+            .map(|x| parsers::fetch_dep_info(x.to_string(), kind));
+        let results = try_join_all(fetchers).await.unwrap_or(vec![]);
+        let mut metadata = HashMap::new();
+        if &results.len() == &dep_names.len() {
+            let mut count = 0;
+            for item in dep_names {
+                let mut api_data = results[count].clone();
+                api_data.versions.sort();
+                api_data.versions = api_data.versions.into_iter().rev().collect();
+                metadata.insert(item, api_data);
+                count += 1;
+            }
+        }
+
+        Project {
+            config,
+            lockfile,
+            metadata,
+        }
     }
 
-    pub fn get_ugrade_type(&self) -> UpgradeType {
-        if let Some(cv) = &self.current_version {
-            if let Some(sv) = &self.latest_semver_version {
-                if cv.major < sv.major {
-                    return UpgradeType::Major;
+    pub async fn reparse(&self, folder: &str, kind: &ParserKind) -> Project {
+        let config = parsers::parse_config(folder, kind);
+        let lockfile = parsers::parse_lockfile(folder, kind);
+
+        let dep_names: Vec<String> = config
+            .groups
+            .keys()
+            .into_iter()
+            .flat_map(|x| config.groups[x].keys())
+            .map(|x| x.to_string())
+            .filter(|x| !self.metadata.keys().into_iter().any(|e| e == x))
+            .collect();
+
+        let fetchers = dep_names
+            .clone()
+            .into_iter()
+            .map(|x| parsers::fetch_dep_info(x.to_string(), kind));
+        let results = try_join_all(fetchers).await.unwrap_or(vec![]);
+        let mut metadata = HashMap::new();
+        if &results.len() == &dep_names.len() {
+            let mut count = 0;
+            for item in dep_names {
+                let mut api_data = results[count].clone();
+                api_data.versions.sort();
+                api_data.versions = api_data.versions.into_iter().rev().collect();
+                metadata.insert(item, api_data);
+                count += 1;
+            }
+        }
+        metadata.extend(self.metadata.clone());
+        Project {
+            config,
+            lockfile,
+            metadata,
+        }
+    }
+
+    // pub async fn search_deps(kind: &ParserKind, query: &str) {}
+    pub fn get_groups(&self) -> Vec<String> {
+        let mut groups = vec![];
+        for key in self.config.groups.keys() {
+            groups.push(key.to_string())
+        }
+        groups
+    }
+
+    pub fn get_deps_in_group(&self, group: &str) -> Vec<String> {
+        let mut deps = vec![];
+        if let Some(dps) = &self.config.groups.get(group) {
+            for key in dps.keys() {
+                deps.push(key.to_string());
+            }
+        }
+        deps
+    }
+
+    pub fn is_versions_available(&self, name: &str) -> bool {
+        if let Some(_) = &self.metadata.get(name) {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn get_dep_versions(&self, name: &str) -> Option<&Vec<Version>> {
+        if let Some(meta) = &self.metadata.get(name) {
+            Some(&meta.versions)
+        // Some(meta.versions.clone().into_iter().map(|x| x.to_string()).collect())
+        } else {
+            None
+        }
+    }
+
+    pub fn get_current_version(&self, name: &str) -> Option<&Version> {
+        self.lockfile.get(name)
+    }
+    pub fn get_semver_version(&self, group: &str, name: &str) -> Option<&Version> {
+        let current_version = self.get_current_version(&name);
+        let specified_version = self.get_specified_version(&group, &name);
+        let versions = self.get_dep_versions(&name);
+        if let Some(sv) = specified_version {
+            if let Some(vers) = versions {
+                if let Some(cv) = current_version {
+                    let current_pos = vers.iter().position(|r| &r == &cv);
+                    if let Some(cp) = current_pos {
+                        let mut last = cv;
+                        for i in (0..cp).rev() {
+                            if sv.matches(&vers[i]) {
+                                last = &vers[i];
+                            } else {
+                                break;
+                            }
+                        }
+                        return Some(last);
+                    }
                 }
-                if cv.minor < sv.minor {
-                    return UpgradeType::Minor;
-                }
-                if cv.patch < sv.patch {
-                    return UpgradeType::Patch;
+            }
+        }
+        None
+    }
+    pub fn get_specified_version(&self, group: &str, name: &str) -> Option<&VersionReq> {
+        self.config
+            .groups
+            .get(group)
+            .unwrap()
+            .get(name)
+            .unwrap()
+            .as_ref()
+    }
+    pub fn get_latest_version(&self, name: &str) -> Option<&Version> {
+        let versions = self.get_dep_versions(&name);
+        match versions {
+            Some(v) => Some(&v[0]),
+            None => None,
+        }
+    }
+
+    pub fn get_upgrade_type(&self, group: &str, name: &str) -> UpgradeType {
+        let current_version = self.get_current_version(&name);
+        let semver_version = self.get_semver_version(&group, &name);
+        let latest_version = self.get_latest_version(&name);
+        if let Some(cv) = &current_version {
+            if let Some(sv) = &semver_version {
+                if let Some(lv) = &latest_version {
+                    if cv.major < sv.major {
+                        return UpgradeType::Major;
+                    } else if cv.minor < sv.minor {
+                        return UpgradeType::Minor;
+                    } else if cv.patch < sv.patch {
+                        return UpgradeType::Patch;
+                    } else if lv > cv {
+                        return UpgradeType::Breaking;
+                    }
                 }
             }
         }
         UpgradeType::None
     }
 
-    pub fn get_version_strings(&self) -> Vec<String> {
-        let mut version_strings = vec![];
-        if let Some(av) = &self.available_versions {
-            for version in av.iter().rev() {
-                version_strings.push(version.to_string())
-            }
-        }
-        version_strings
-    }
-    pub fn get_specified_version(&self) -> String {
-        self.specified_version.as_ref().map_or("-".to_string(), |x| x.to_string())
-    }
-    pub fn get_current_version(&self) -> String {
-        self.current_version.as_ref().map_or("-".to_string(), |x| x.to_string())
-    }
-    pub fn get_latest_version(&self) -> String {
-        self.latest_version.as_ref().map_or("-".to_string(), |x| x.to_string())
-    }
-    pub fn get_latest_semver_version(&self) -> String {
-        self.latest_semver_version.as_ref().map_or("-".to_string(), |x| x.to_string())
-    }
-}
-
-type DepGroup = BTreeMap<String, Dep>;
-
-#[derive(Debug, Clone)]
-pub struct Config {
-    pub dep_groups: BTreeMap<String, DepGroup>,
-}
-
-impl Config {
-    pub fn get_dep_kinds(&self) -> Vec<String> {
-        let mut groups = vec![];
-        for (gn, _) in self.dep_groups.iter() {
-            groups.push(gn.to_string())
-        }
-        groups
-    }
-    pub fn get_dep(&self, dep_name: &str) -> Option<Dep> {
-        for (_, group) in self.dep_groups.iter() {
-            for (_, dep) in group.iter() {
-                if dep_name == dep.name {
-                    return Some(dep.clone());
-                }
-            }
-        }
-        None
-    }
-    pub fn get_dep_names_of_kind(&self, kind: &str) -> Vec<String> {
-        let group = self.dep_groups.get(kind).unwrap();
-        let mut names = vec![];
-        for dep in group.keys().into_iter() {
-            names.push(dep.to_string());
-        }
-        names
-    }
-}
-
-impl Config {
-    pub async fn new(folder: &str, kind: ParserKind) -> Self {
-        match kind {
-            ParserKind::JavascriptNpm => JavascriptNpm::parse(folder).await,
-            ParserKind::RustCargo => RustCargo::parse(folder).await,
+    pub fn get_author(&self, name: &str) -> Option<String> {
+        let author = &self.metadata.get(name).unwrap().author;
+        match author {
+            Some(a) => Some(a.to_string()),
+            None => None
         }
     }
-}
-
-impl Config {
-    pub fn delete_dep(dep: Option<Dep>, kind: ParserKind, root: &str) -> bool {
-        match dep {
-            None => false,
-            Some(d) => {
-                match kind {
-                    ParserKind::JavascriptNpm => JavascriptNpm::delete_dep(d, root),
-                    ParserKind::RustCargo => RustCargo::delete_dep(d, root),
-                }
-                true
-            }
-        }
+    pub fn get_homepage(&self, name: &str) -> Option<String> {
+        self.metadata.get(name).unwrap().homepage.clone()
+    }
+    pub fn get_repository(&self, name: &str) -> Option<String> {
+        self.metadata.get(name).unwrap().repository.clone()
+    }
+    pub fn get_license(&self, name: &str) -> Option<String> {
+        self.metadata.get(name).unwrap().license.clone()
+    }
+    pub fn get_description(&self, name: &str) -> Option<String> {
+        self.metadata.get(name).unwrap().description.clone()
     }
 
-    pub fn install_dep(kind: ParserKind, dep: Option<InstallCandidate>, root: &str) -> bool {
-        match dep {
-            None => false,
-            Some(d) => {
-                match kind {
-                    ParserKind::JavascriptNpm => JavascriptNpm::install_dep(d, root),
-                    ParserKind::RustCargo => RustCargo::install_dep(d, root),
-                }
-                true
-            }
-        }
+    pub fn delete_dep(&self, kind: &ParserKind, folder: &str, group: &str, name: &str) -> bool {
+        parsers::delete_dep(kind, folder, group, name)
     }
 
-    pub async fn search_deps(
-        kind: ParserKind,
-        name: &str,
-    ) -> Result<Vec<SearchDep>, Box<dyn Error>> {
-        match kind {
-            ParserKind::JavascriptNpm => Ok(JavascriptNpm::search_deps(name).await?),
-            ParserKind::RustCargo => Ok(RustCargo::search_deps(name).await?),
-        }
+    pub fn install_dep(&self, kind: &ParserKind, folder: &str, dep: InstallCandidate) -> bool {
+        parsers::install_dep(kind, folder, dep)
+    }
+
+    pub async fn search_dep(&self, kind: &ParserKind, term: &str) -> Option<Vec<SearchDep>> {
+        parsers::search_dep(kind, term).await.ok()
     }
 }

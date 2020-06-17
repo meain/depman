@@ -8,7 +8,13 @@ use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Tex
 use std::process::Command;
 use tui::terminal::Frame;
 
-use crate::parser::{Config, Dep, ParserKind, SearchDep, UpgradeType};
+use crate::parser::determinekind::ParserKind;
+use crate::parser::{stringify, Project, SearchDep, UpgradeType};
+
+pub struct AppState {
+    tab: usize,
+    dep: Option<usize>,
+}
 
 #[derive(Debug)]
 pub struct InstallCandidate {
@@ -17,10 +23,6 @@ pub struct InstallCandidate {
     pub kind: String,
 }
 
-pub struct AppState {
-    tab: usize,
-    dep: Option<usize>,
-}
 #[derive(Debug)]
 pub enum PopupKind {
     Message,
@@ -31,8 +33,9 @@ pub enum PopupKind {
     None,
 }
 pub struct App {
-    pub kind: ParserKind,
-    data: Config,
+    folder: String, // TODO: Change this to path
+    kind: ParserKind,
+    project: Project,
     tabs: TabsState,
     items: StatefulList<String>,
     versions: StatefulList<String>,
@@ -44,18 +47,19 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(config: Config, kind: ParserKind) -> App {
-        let dep_kinds = config.get_dep_kinds();
-        let dep_names = config.get_dep_names_of_kind(&dep_kinds[0]);
+    pub fn new(project: Project, kind: ParserKind, folder: &str) -> App {
+        let dep_kinds = project.get_groups();
+        let dep_names = project.get_deps_in_group(&dep_kinds[0]);
         let mut dep_versions = vec![];
         if dep_names.len() > 0 {
-            if let Some(dep) = config.get_dep(&dep_names[0]) {
-                dep_versions = dep.get_version_strings();
+            if let Some(dep) = project.get_dep_versions(&dep_names[0]) {
+                dep_versions = dep.into_iter().map(|x| x.to_string()).collect();
             }
         }
         App {
+            folder: folder.to_string(),
             kind,
-            data: config,
+            project,
             tabs: TabsState::new(dep_kinds),
             items: StatefulList::with_items(dep_names),
             versions: StatefulList::with_items(dep_versions),
@@ -67,76 +71,44 @@ impl App {
         }
     }
 
-    pub fn get_state(&self) -> AppState {
-        let dep = match self.items.state.selected() {
-            Some(m) => match m {
-                0 => {
-                    if self.items.items.len() == 0 {
-                        None
-                    } else {
-                        Some(0)
-                    }
-                }
-                m => Some(m - 1),
+    fn get_current_version_strings(&self) -> Vec<String> {
+        let current_dep = self.get_current_dep_name();
+        match current_dep {
+            Some(dep) => match self.project.get_dep_versions(&dep) {
+                Some(v) => v.clone().into_iter().map(|x| x.to_string()).collect(),
+                None => vec![],
             },
-            None => None,
-        };
-        AppState {
-            tab: self.tabs.index,
-            dep,
-        }
-    }
-    pub fn set_state(&mut self, state: AppState) {
-        self.tabs.index = state.tab;
-        let dep_names = self
-            .data
-            .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
-        self.items = StatefulList::with_items(dep_names);
-        self.items.state.select(state.dep);
-        let mut dep_versions = vec![];
-        if let Some(dep) = self.get_current_dep() {
-            dep_versions = dep.get_version_strings();
-        }
-        self.versions = StatefulList::with_items(dep_versions);
-        self.versions.state.select(self.get_current_version_index());
-    }
-
-    pub fn get_current_dep(&self) -> Option<Dep> {
-        if self.items.items.len() > 0 {
-            self.data.get_dep(&self.items.get_item())
-        } else {
-            None
+            _ => vec![],
         }
     }
 
-    pub fn get_selected_version(&mut self) -> String {
+    pub fn get_selected_version(&self) -> String {
         self.versions.get_item()
     }
 
     pub fn open_homepage(&mut self) {
-        let dep = self.data.get_dep(&self.items.get_item());
-        if let Some(d) = dep {
-            let homepage = d.homepage;
-
-            match homepage {
-                Some(hp) => {
-                    Command::new("open")
-                        .arg(hp)
-                        .output()
-                        .expect("Failed to execute command");
-                }
-                None => {}
+        let current_dep = self.get_current_dep_name();
+        if let Some(dep) = current_dep {
+            let homepage = self.project.get_homepage(&dep);
+            if let Some(hp) = homepage {
+                Command::new("open")
+                    .arg(hp)
+                    .output()
+                    .expect("Failed to execute command");
             }
         }
     }
 
-    pub fn open_package_repo(&mut self) {
-        let dep = self.data.get_dep(&self.items.get_item());
-        if let Some(de) = dep {
-            Command::new("open")
-                .arg(de.get_package_repo())
-                .output()
-                .expect("Failed to execute command");
+    pub fn open_repository(&mut self) {
+        let current_dep = self.get_current_dep_name();
+        if let Some(dep) = current_dep {
+            let repository = self.project.get_repository(&dep);
+            if let Some(rp) = repository {
+                Command::new("open")
+                    .arg(rp)
+                    .output()
+                    .expect("Failed to execute command");
+            }
         }
     }
 
@@ -158,7 +130,10 @@ impl App {
     }
     pub fn toggle_versions_menu(&mut self) {
         if let PopupKind::None = self.popup {
-            if !self.is_versions_available() {
+            if !self
+                .project
+                .is_versions_available(&self.get_current_dep_name().unwrap())
+            {
                 self.message = Some("No versions available".to_string());
                 self.popup = PopupKind::Message;
                 return;
@@ -181,29 +156,23 @@ impl App {
     pub fn tab_next(&mut self) {
         self.tabs.next();
         let dep_names = self
-            .data
-            .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
+            .project
+            .get_deps_in_group(&self.tabs.titles[self.tabs.index]);
         self.items = StatefulList::with_items(dep_names);
         self.items.next();
-        let mut dep_versions = vec![];
-        if let Some(dep) = self.get_current_dep() {
-            dep_versions = dep.get_version_strings();
-        }
+        let dep_versions = self.get_current_version_strings();
         self.versions = StatefulList::with_items(dep_versions);
         self.versions.state.select(self.get_current_version_index());
     }
     pub fn tab_previous(&mut self) {
         self.tabs.previous();
         let dep_names = self
-            .data
-            .get_dep_names_of_kind(&self.tabs.titles[self.tabs.index]);
+            .project
+            .get_deps_in_group(&self.tabs.titles[self.tabs.index]);
         self.items = StatefulList::with_items(dep_names);
         self.items.next();
 
-        let mut dep_versions = vec![];
-        if let Some(dep) = self.get_current_dep() {
-            dep_versions = dep.get_version_strings();
-        }
+        let dep_versions = self.get_current_version_strings();
         self.versions = StatefulList::with_items(dep_versions);
         self.versions.state.select(self.get_current_version_index());
     }
@@ -218,10 +187,7 @@ impl App {
             self.versions.next()
         } else {
             self.items.first();
-            let mut dep_versions = vec![];
-            if let Some(dep) = self.get_current_dep() {
-                dep_versions = dep.get_version_strings();
-            }
+            let dep_versions = self.get_current_version_strings();
             self.versions = StatefulList::with_items(dep_versions);
             self.versions.state.select(self.get_current_version_index());
         }
@@ -232,10 +198,7 @@ impl App {
             self.versions.last();
         } else {
             self.items.last();
-            let mut dep_versions = vec![];
-            if let Some(dep) = self.get_current_dep() {
-                dep_versions = dep.get_version_strings();
-            }
+            let dep_versions = self.get_current_version_strings();
             self.versions = StatefulList::with_items(dep_versions);
             self.versions.state.select(self.get_current_version_index());
         }
@@ -248,10 +211,7 @@ impl App {
             PopupKind::SearchList => self.search_result.next(),
             _ => {
                 self.items.next();
-                let mut dep_versions = vec![];
-                if let Some(dep) = self.get_current_dep() {
-                    dep_versions = dep.get_version_strings();
-                }
+                let dep_versions = self.get_current_version_strings();
                 self.versions = StatefulList::with_items(dep_versions);
                 self.versions.state.select(self.get_current_version_index());
             }
@@ -269,23 +229,63 @@ impl App {
             PopupKind::SearchList => self.search_result.previous(),
             _ => {
                 self.items.previous();
-                let mut dep_versions = vec![];
-                if let Some(dep) = self.get_current_dep() {
-                    dep_versions = dep.get_version_strings();
-                }
+                let dep_versions = self.get_current_version_strings();
                 self.versions = StatefulList::with_items(dep_versions);
                 self.versions.state.select(self.get_current_version_index());
             }
         }
     }
 
-    pub fn get_install_candidate(&mut self) -> Option<InstallCandidate> {
+    pub fn get_state(&self) -> AppState {
+        let dep = match self.items.state.selected() {
+            Some(m) => match m {
+                0 => {
+                    if self.items.items.len() == 0 {
+                        None
+                    } else {
+                        Some(0)
+                    }
+                }
+                m => Some(m - 1),
+            },
+            None => None,
+        };
+        AppState {
+            tab: self.tabs.index,
+            dep,
+        }
+    }
+
+    pub fn set_state(&mut self, state: AppState) {
+        self.tabs.index = state.tab;
+        let dep_names = self
+            .project
+            .get_deps_in_group(&self.tabs.titles[self.tabs.index]);
+        self.items = StatefulList::with_items(dep_names);
+        self.items.state.select(state.dep);
+        let dep_versions = self.get_current_version_strings();
+        self.versions = StatefulList::with_items(dep_versions);
+        self.versions.state.select(self.get_current_version_index());
+    }
+
+    pub fn delete_current_dep(&self) -> bool {
+        let current_tab = &self.get_current_group_name().unwrap();
+        let current_dep = self.get_current_dep_name();
+        if let Some(cd) = &current_dep {
+            self.project
+                .delete_dep(&self.kind, &self.folder, &current_tab, &cd)
+        } else {
+            false
+        }
+    }
+
+    pub fn get_install_candidate(&self) -> Option<InstallCandidate> {
         match self.popup {
             PopupKind::Versions => {
-                let current_dep = self.get_current_dep().unwrap();
+                let current_dep = self.get_current_dep_name().unwrap();
                 let version_string = self.get_selected_version();
                 Some(InstallCandidate {
-                    name: current_dep.name,
+                    name: current_dep,
                     version: version_string,
                     kind: self.tabs.titles[self.tabs.index].to_string(),
                 })
@@ -296,10 +296,20 @@ impl App {
                 Some(InstallCandidate {
                     name: search_dep.name,
                     version: search_dep.version,
-                    kind: self.tabs.titles[self.tabs.index].to_string(),
+                    kind: self.get_current_group_name().unwrap(),
                 })
             }
             _ => None,
+        }
+    }
+
+    pub fn install_dep(&self) -> bool {
+        let install_candidate = self.get_install_candidate();
+        if let Some(ic) = install_candidate {
+            self.project.install_dep(&self.kind, &self.folder, ic);
+            true
+        } else {
+            false
         }
     }
 
@@ -312,17 +322,31 @@ impl App {
         self.message = None;
     }
 
-    pub fn is_versions_available(&mut self) -> bool {
-        let current_dep = self.get_current_dep().unwrap();
-        match current_dep.available_versions {
-            Some(av) => av.len() > 0,
-            None => false,
+    fn get_current_dep_name(&self) -> Option<String> {
+        if &self.tabs.index < &self.tabs.titles.len() {
+            // let group = &self.tabs.titles[self.tabs.index];
+            match &self.items.state.selected() {
+                Some(_) => Some(self.items.get_item()),
+                None => None,
+            }
+        } else {
+            None
         }
     }
 
-    pub fn show_searches(&mut self, r: Vec<SearchDep>) {
+    pub async fn search(&mut self, term: &str) -> bool {
+        let results = self.project.search_dep(&self.kind, term).await;
+        if let Some(res) = results {
+            self.search_result = StatefulList::with_items(res);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn show_searches(&mut self) {
         self.popup = PopupKind::SearchList;
-        self.search_result = StatefulList::with_items(r);
+        // self.search_result = StatefulList::with_items(r);
         self.search_result.next();
     }
 
@@ -466,21 +490,25 @@ impl App {
     }
 
     pub fn render_version_selector<B: Backend>(&mut self, f: &mut Frame<B>) {
-        if let Some(d) = self.get_current_dep() {
+        let current_tab = &self.get_current_group_name().unwrap();
+        if let Some(d) = self.get_current_dep_name() {
             if let PopupKind::Versions = self.popup {
                 let mut items = vec![];
                 for item in self.versions.items.iter() {
-                    if &d.get_current_version() == item && &d.get_latest_semver_version() == item {
+                    if &stringify(&self.project.get_current_version(&d)) == item
+                        && &stringify(&self.project.get_semver_version(&current_tab, &d)) == item
+                    {
                         items.push(Text::styled(
                             format!("{} current&latest-semver", item),
                             Style::default().fg(Color::Cyan),
                         ));
-                    } else if &d.get_current_version() == item {
+                    } else if &stringify(&self.project.get_current_version(&d)) == item {
                         items.push(Text::styled(
                             format!("{} current", item),
                             Style::default().fg(Color::Cyan),
                         ));
-                    } else if &d.get_latest_semver_version() == item {
+                    } else if &stringify(&self.project.get_semver_version(&current_tab, &d)) == item
+                    {
                         items.push(Text::styled(
                             format!("{} latest-semver", item),
                             Style::default().fg(Color::Green),
@@ -494,9 +522,10 @@ impl App {
                 let current_item = self.versions.state.selected();
                 if let Some(ci) = current_item {
                     let item = &self.versions.items[ci];
-                    if &d.get_current_version() == item {
+                    if &stringify(&self.project.get_current_version(&d)) == item {
                         color = Color::Cyan;
-                    } else if &d.get_latest_semver_version() == item {
+                    } else if &stringify(&self.project.get_semver_version(&current_tab, &d)) == item
+                    {
                         color = Color::Green;
                     }
                 }
@@ -521,9 +550,9 @@ impl App {
     }
 
     pub fn get_current_version_index(&self) -> Option<usize> {
-        if let Some(d) = &self.get_current_dep() {
+        if let Some(d) = &self.get_current_dep_name() {
             for (i, item) in self.versions.items.iter().enumerate() {
-                if &d.get_current_version() == item {
+                if &stringify(&self.project.get_current_version(&d)) == item {
                     return Some(i);
                 }
             }
@@ -544,29 +573,48 @@ impl App {
     }
 
     pub fn render_dependency_info<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
-        let dep = self.get_current_dep();
+        let current_tab = &self.get_current_group_name().unwrap();
+        let dep = self.get_current_dep_name();
         if let Some(d) = dep {
             let text = [
                 Text::styled("Name", Style::default().fg(Color::Red)),
-                Text::raw(format!(" {}\n", d.name)),
+                Text::raw(format!(" {}\n", d)),
                 Text::styled("Specified Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", &d.get_specified_version())),
+                Text::raw(format!(
+                    " {}\n",
+                    stringify(&self.project.get_specified_version(&current_tab, &d))
+                )),
                 Text::styled("Current Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", &d.get_current_version())),
+                Text::raw(format!(
+                    " {}\n",
+                    stringify(&self.project.get_current_version(&d))
+                )),
                 Text::styled("Upgradeable Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", &d.get_latest_semver_version())),
+                Text::raw(format!(
+                    " {}\n",
+                    stringify(&self.project.get_semver_version(&current_tab, &d))
+                )),
                 Text::styled("Latest Version", Style::default().fg(Color::Blue)),
-                Text::raw(format!(" {}\n", &d.get_latest_version())),
+                Text::raw(format!(
+                    " {}\n",
+                    stringify(&self.project.get_latest_version(&d))
+                )),
                 Text::styled("Author", Style::default().fg(Color::Green)),
-                Text::raw(format!(" {}\n", &d.get_author())),
+                Text::raw(format!(" {}\n", stringify(&self.project.get_author(&d)))),
                 Text::styled("Homepage", Style::default().fg(Color::Magenta)),
-                Text::raw(format!(" {}\n", &d.get_homepage())),
+                Text::raw(format!(" {}\n", stringify(&self.project.get_homepage(&d)))),
                 Text::styled("Package repo:", Style::default().fg(Color::Magenta)),
-                Text::raw(format!(" {}\n", &d.get_package_repo())),
+                Text::raw(format!(
+                    " {}\n",
+                    stringify(&self.project.get_repository(&d))
+                )),
                 Text::styled("License", Style::default().fg(Color::Yellow)),
-                Text::raw(format!(" {}\n", &d.get_license())),
+                Text::raw(format!(" {}\n", stringify(&self.project.get_license(&d)))),
                 Text::styled("Description", Style::default().fg(Color::Cyan)),
-                Text::raw(format!(" {}\n", &d.get_description())),
+                Text::raw(format!(
+                    " {}\n",
+                    stringify(&self.project.get_description(&d))
+                )),
             ];
             let block = Paragraph::new(text.iter())
                 .block(
@@ -583,50 +631,36 @@ impl App {
         }
     }
 
+    fn get_current_group_name(&self) -> Option<String> {
+        if &self.tabs.index < &self.tabs.titles.len() {
+            Some(self.tabs.titles[self.tabs.index].to_string())
+        } else {
+            None
+        }
+    }
+
     pub fn render_dependency_list<B: Backend>(&mut self, f: &mut Frame<B>, chunk: Rect) {
-        if let Some(dc) = self.get_current_dep() {
-            let dc_upgrade_type = dc.get_ugrade_type();
-            let is_newer_available = match &dc.current_version {
-                Some(cv) => match &dc.latest_version {
-                    Some(lv) => cv < &lv,
-                    _ => false,
-                },
-                _ => false,
-            };
+        if let Some(dc) = self.get_current_dep_name() {
+            let current_tab = &self.get_current_group_name().unwrap();
+            let dc_upgrade_type = self.project.get_upgrade_type(&current_tab, &dc);
             let mut items = vec![];
             for item in self.items.items.iter() {
-                let dep = self.data.get_dep(item);
-                match dep {
-                    Some(d) => {
-                        let upgrade_type = d.get_ugrade_type();
-                        let is_newer_available = match &d.current_version {
-                            Some(cv) => match &d.latest_version {
-                                Some(lv) => cv < &lv,
-                                _ => false,
-                            },
-                            _ => false,
-                        };
-                        let breaking_changes_string = match is_newer_available {
-                            true => match upgrade_type {
-                                UpgradeType::None => "+",
-                                _ => "",
-                            },
-                            false => "",
-                        };
-                        items.push(Text::styled(
-                            format!(
-                                "{} ({} > {})  {}",
-                                d.name,
-                                d.get_current_version(),
-                                d.get_latest_semver_version(),
-                                breaking_changes_string
-                            ),
-                            Style::default()
-                                .fg(get_version_color(upgrade_type, is_newer_available)),
-                        ));
-                    }
-                    None => unreachable!(),
-                }
+                let upgrade_type = self.project.get_upgrade_type(&current_tab, &item);
+                // use UpgradeType::Breaking instead of is_newer_available
+                let breaking_changes_string = match upgrade_type {
+                    UpgradeType::Breaking => "+",
+                    _ => "",
+                };
+                items.push(Text::styled(
+                    format!(
+                        "{} ({} > {})  {}",
+                        item,
+                        stringify(&self.project.get_current_version(&item)),
+                        stringify(&self.project.get_semver_version(&current_tab, &item)),
+                        breaking_changes_string
+                    ),
+                    Style::default().fg(get_version_color(upgrade_type)),
+                ));
             }
             let block = List::new(items.into_iter())
                 .block(
@@ -637,9 +671,7 @@ impl App {
                         .border_style(Style::default().fg(Color::White)),
                 )
                 .style(Style::default())
-                .highlight_style(
-                    Style::default().fg(get_version_color(dc_upgrade_type, is_newer_available)),
-                )
+                .highlight_style(Style::default().fg(get_version_color(dc_upgrade_type)))
                 .highlight_symbol("■ "); // ║ ▓ ■
             f.render_stateful_widget(block, chunk, &mut self.items.state);
         } else {
@@ -664,15 +696,13 @@ impl App {
     }
 }
 
-fn get_version_color(upgrage_type: UpgradeType, is_newer_available: bool) -> Color {
+fn get_version_color(upgrage_type: UpgradeType) -> Color {
     match upgrage_type {
-        UpgradeType::None => match is_newer_available {
-            true => Color::White, // TODO: figure out what exactly to do
-            false => Color::White,
-        },
+        UpgradeType::None => Color::White,
         UpgradeType::Major => Color::Red,
         UpgradeType::Minor => Color::Magenta,
         UpgradeType::Patch => Color::Green,
+        UpgradeType::Breaking => Color::White,
     }
 }
 

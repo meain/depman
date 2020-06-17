@@ -3,10 +3,9 @@ mod parser;
 mod render;
 
 use crate::events::event::{Event, Events};
-use render::{PopupKind, App};
+use render::{App, PopupKind};
 
 use std::error::Error;
-use std::path::Path;
 use std::{env, io};
 use termion::event::Key;
 use termion::input::MouseTerminal;
@@ -18,32 +17,29 @@ use tui::Terminal;
 
 use tokio;
 
-use parser::{Config, ParserKind};
+use parser::determinekind::ParserKind;
+use parser::{stringify, Project};
 
 #[allow(dead_code)]
-fn printer(config: &Config) {
-    for (gn, group) in config.dep_groups.iter() {
-        for (_, dep) in group.iter() {
-            let name = &dep.name;
-            let specified_version = &dep.get_specified_version();
-            let current_version = &dep.get_current_version();
-            let latest_version = &dep.get_latest_version();
-            let latest_semver_version = &dep.get_latest_semver_version();
+fn printer(config: &Project) {
+    for group in config.get_groups().iter() {
+        for name in config.get_deps_in_group(group) {
+            let name = &name;
+            let specified_version = &config.get_specified_version(group, name);
+            let current_version = &config.get_current_version(name);
+            let latest_version = &config.get_latest_version(name);
+            let latest_semver_version = &config.get_semver_version(group, name);
             println!(
-                "{}: [{}] {}({}) => {}({})",
-                gn, name, specified_version, current_version, latest_semver_version, latest_version
+                "[{}] {} : {}({}) => {}({})",
+                group,
+                name,
+                stringify(specified_version),
+                stringify(current_version),
+                stringify(latest_semver_version),
+                stringify(latest_version)
             );
         }
     }
-}
-
-fn find_type(folder: &str) -> Option<ParserKind> {
-    if Path::new(&format!("{}/package-lock.json", folder)).exists() {
-        return Some(ParserKind::JavascriptNpm);
-    } else if Path::new(&format!("{}/Cargo.lock", folder)).exists() {
-        return Some(ParserKind::RustCargo);
-    }
-    None
 }
 
 #[tokio::main]
@@ -53,32 +49,33 @@ async fn main() -> Result<(), Box<dyn Error>> {
         true => &args[1],
         false => ".",
     };
-    let kind = find_type(&folder).expect("Unsupported package manager");
+    let kind = ParserKind::determine_kind(&folder).expect("Unsupported package manager");
     println!("Fetching dependency info...");
-    let config = Config::new(folder, kind).await;
-    // printer(&config);
+    let project = Project::parse(folder, &kind).await;
+    // printer(&project);
 
     if true {
         let stdout = io::stdout().into_raw_mode()?;
         let stdout = MouseTerminal::from(stdout);
         let stdout = AlternateScreen::from(stdout);
+
         let backend = TermionBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
         terminal.hide_cursor()?;
 
         let mut events = Events::new();
-        let mut app = App::new(config, kind);
+        let mut app = App::new(project.clone(), kind.clone(), folder);
         app.next();
 
         let mut search_in_next_iter: Option<String> = None;
-        let mut reload = true;
+        let mut reload = false;
 
         loop {
             if reload {
-                let config = Config::new(folder, kind).await;
+                let project = project.reparse(&folder, &kind).await;
                 let state = app.get_state();
-                app = App::new(config, kind);
-                app.set_state(state);  // TODO: will have to inject fetched result back in
+                app = App::new(project, kind.clone(), folder);
+                app.set_state(state);
                 reload = false;
                 continue;
             }
@@ -105,11 +102,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             if let Some(term) = search_in_next_iter {
                 search_in_next_iter = None;
-                let result = Config::search_deps(kind, &term).await;
+                let result = app.search(&term).await;
                 app.remove_message();
-                match result {
-                    Ok(r) => app.show_searches(r),
-                    _ => app.set_message("Search failed"),
+                if result {
+                    app.show_searches();
+                } else {
+                    app.set_message("Search failed");
                 }
                 continue;
             }
@@ -145,33 +143,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 app.popup = PopupKind::SearchInput;
                             }
                             Key::Char('D') => {
-                                let status = Config::delete_dep(app.get_current_dep(), app.kind, folder);
-                                if status {
+                                if app.delete_current_dep() {
                                     app.set_message("Dependency removed");
                                     reload = true;
                                 }
                             }
                             Key::Char('o') => app.open_homepage(),
-                            Key::Char('p') => app.open_package_repo(),
+                            Key::Char('p') => app.open_repository(),
                             Key::Char('?') => app.toggle_help_menu(), // h is for next tab
                             Key::Esc => {
                                 app.unwrap_popup();
                             }
                             Key::Char('v') | Key::Char(' ') => app.toggle_versions_menu(),
                             Key::Left | Key::Char('h') => app.tab_previous(),
-                            Key::Right | Key::Char('l') => app.tab_next(),
+                            Key::Right | Key::Char('l') | Key::Char('\t') => app.tab_next(),
                             Key::Down | Key::Char('j') => app.next(),
                             Key::Up | Key::Char('k') => app.previous(),
                             Key::Char('\n') => {
-                                let is_installed =
-                                    Config::install_dep(kind, app.get_install_candidate(), folder);
+                                let is_installed = app.install_dep();
                                 if is_installed {
                                     app.set_message("Dependency updated!");
-                                    reload = true;
                                 } else {
                                     app.set_message("Update failed.");
-                                    reload = true;
                                 }
+                                reload = true;
                             }
                             Key::Char('g') => app.top(),
                             Key::Char('G') => app.bottom(),
