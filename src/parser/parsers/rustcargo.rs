@@ -1,16 +1,16 @@
-use std::fs;
-use std::env;
 use std::collections::hash_map::HashMap;
 use std::collections::BTreeMap;
+use std::env;
+use std::fs;
 
-use toml::Value;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
+use toml::Value;
 use toml_edit::Document;
 
-use crate::parser::{Config, DependencyGroup, Lockfile, DepInfo};
+use crate::parser::{Config, DepInfo, DependencyGroup, Lockfile, SearchDep};
 
-
+/// For pulling versions
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct CargoResponseCrate {
     name: String,
@@ -27,6 +27,18 @@ pub struct CargoResponse {
     #[serde(alias = "crate")]
     info: CargoResponseCrate,
     versions: Vec<CargoResponseVersion>,
+}
+
+/// For search
+// TODO: probably add description and other stuff we have for normal deps
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct CratesIOSearchCreate {
+    name: String,
+    newest_version: String,
+}
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct CratesIOSearchResp {
+    crates: Vec<CratesIOSearchCreate>,
 }
 
 pub struct RustCargo;
@@ -126,23 +138,51 @@ impl RustCargo {
             .json()
             .await?;
 
-        let versions = resp.versions.into_iter().map(|x| Version::parse(&x.num).unwrap()).collect();
+        let versions = resp
+            .versions
+            .into_iter()
+            .map(|x| Version::parse(&x.num).unwrap())
+            .collect();
 
-        Ok(DepInfo{
+        Ok(DepInfo {
             author: None,
             homepage: resp.info.homepage,
             license: resp.info.license,
             description: resp.info.description,
             repository: Some(format!("https://crates.io/crates/{}", name)),
-            versions
+            versions,
         })
     }
 
     pub fn delete_dep(folder: &str, group: &str, name: &str) {
         let path_string = format!("{}/Cargo.toml", folder);
         let file_contents = std::fs::read_to_string(&path_string).unwrap();
-        let mut doc = file_contents.parse::<Document>().expect("Invalid config file");
+        let mut doc = file_contents
+            .parse::<Document>()
+            .expect("Invalid config file");
         doc[group][name] = toml_edit::Item::None;
         std::fs::write(&path_string, doc.to_string()).unwrap();
+    }
+
+    pub async fn search_dep(term: &str) -> Option<Vec<SearchDep>> {
+        let url = format!(
+            "https://crates.io/api/v1/crates?page=1&per_page=20&q={}",
+            term
+        );
+        let resp: CratesIOSearchResp = reqwest::Client::new()
+            .get(&url)
+            .header("User-Agent", "depman (github.com/meain/depman)")
+            .send()
+            .await.ok()?
+            .json()
+            .await.ok()?;
+        Some(resp
+            .crates
+            .into_iter()
+            .map(|x| SearchDep {
+                name: x.name,
+                version: x.newest_version,
+            })
+            .collect())
     }
 }

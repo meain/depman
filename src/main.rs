@@ -3,7 +3,7 @@ mod parser;
 mod render;
 
 use crate::events::event::{Event, Events};
-use render::{PopupKind, App};
+use render::{App, PopupKind};
 
 use std::error::Error;
 use std::{env, io};
@@ -17,8 +17,8 @@ use tui::Terminal;
 
 use tokio;
 
-use parser::Project;
 use parser::determinekind::ParserKind;
+use parser::Project;
 
 // #[allow(dead_code)]
 // fn printer(config: &Config) {
@@ -97,16 +97,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 app.render_search_results(&mut f);
             })?;
 
-            // if let Some(term) = search_in_next_iter {
-            //     search_in_next_iter = None;
-            //     let result = Project::search_deps(kind, &term).await;
-            //     app.remove_message();
-            //     match result {
-            //         Ok(r) => app.show_searches(r),
-            //         _ => app.set_message("Search failed"),
-            //     }
-            //     continue;
-            // }
+            if let Some(term) = search_in_next_iter {
+                search_in_next_iter = None;
+                let result = app.search(&term).await;
+                app.remove_message();
+                if result {
+                    app.show_searches();
+                } else {
+                    app.set_message("Search failed");
+                }
+                continue;
+            }
 
             match events.next()? {
                 Event::Input(input) => {
@@ -139,8 +140,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 app.popup = PopupKind::SearchInput;
                             }
                             Key::Char('D') => {
-                                let status = app.delete_current_dep();
-                                if status {
+                                if app.delete_current_dep() {
                                     app.set_message("Dependency removed");
                                     reload = true;
                                 }

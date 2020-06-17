@@ -17,6 +17,13 @@ pub enum UpgradeType {
     Breaking,
 }
 
+#[derive(Debug, Clone)]
+pub struct SearchDep {
+    pub name: String,
+    pub version: String,
+    // TODO: add in more items like homepage, repo, author etc
+}
+
 type DependencyGroup = BTreeMap<String, Option<VersionReq>>;
 #[derive(Clone)]
 pub struct Config {
@@ -243,5 +250,9 @@ impl Project {
 
     pub fn delete_dep(&self, kind: &ParserKind, folder: &str, group: &str, name: &str) -> bool {
         parsers::delete_dep(kind, folder, group, name)
+    }
+
+    pub async fn search_dep(&self, kind: &ParserKind, term: &str) -> Option<Vec<SearchDep>> {
+        parsers::search_dep(kind, term).await
     }
 }

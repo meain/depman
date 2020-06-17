@@ -9,7 +9,7 @@ use std::process::Command;
 use tui::terminal::Frame;
 
 use crate::parser::determinekind::ParserKind;
-use crate::parser::{stringify, Project, UpgradeType};
+use crate::parser::{stringify, Project, SearchDep, UpgradeType};
 
 pub struct AppState {
     tab: usize,
@@ -43,7 +43,7 @@ pub struct App {
     help_content_pos: u16,
     message: Option<String>,
     pub search_string: String,
-    pub search_result: StatefulList<String>,
+    pub search_result: StatefulList<SearchDep>,
 }
 
 impl App {
@@ -272,7 +272,8 @@ impl App {
         let current_tab = &self.get_current_group_name().unwrap();
         let current_dep = self.get_current_dep_name();
         if let Some(cd) = &current_dep {
-            self.project.delete_dep(&self.kind, &self.folder, &current_tab, &cd)
+            self.project
+                .delete_dep(&self.kind, &self.folder, &current_tab, &cd)
         } else {
             false
         }
@@ -313,9 +314,9 @@ impl App {
 
     fn get_current_dep_name(&self) -> Option<String> {
         if &self.tabs.index < &self.tabs.titles.len() {
-            let group = &self.tabs.titles[self.tabs.index];
+            // let group = &self.tabs.titles[self.tabs.index];
             match &self.items.state.selected() {
-                Some(ds) => Some(self.items.get_item()),
+                Some(_) => Some(self.items.get_item()),
                 None => None,
             }
         } else {
@@ -323,11 +324,21 @@ impl App {
         }
     }
 
-    // pub fn show_searches(&mut self, r: Vec<SearchDep>) {
-    //     self.popup = PopupKind::SearchList;
-    //     self.search_result = StatefulList::with_items(r);
-    //     self.search_result.next();
-    // }
+    pub async fn search(&mut self, term: &str) -> bool {
+        let results = self.project.search_dep(&self.kind, term).await;
+        if let Some(res) = results {
+            self.search_result = StatefulList::with_items(res);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn show_searches(&mut self) {
+        self.popup = PopupKind::SearchList;
+        // self.search_result = StatefulList::with_items(r);
+        self.search_result.next();
+    }
 
     pub fn search_update(&mut self, input: Key) {
         match input {
@@ -448,11 +459,7 @@ impl App {
         if let PopupKind::SearchList = self.popup {
             let mut results = vec![];
             for item in &self.search_result.items {
-                results.push(Text::raw(format!(
-                    "{} {}",
-                    item,
-                    &stringify(&self.project.get_current_version(item))
-                )))
+                results.push(Text::raw(format!("{} {}", item.name, item.version)))
             }
             let block = List::new(results.into_iter())
                 .block(

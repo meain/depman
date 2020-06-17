@@ -2,7 +2,7 @@
 mod rustcargo;
 
 use super::{Config, Lockfile};
-use super::{DepInfo, determinekind::ParserKind};
+use super::{DepInfo, determinekind::ParserKind, SearchDep};
 
 use rustcargo::RustCargo;
 // use javascriptnpm::JavascriptNpm;
@@ -36,4 +36,12 @@ pub fn delete_dep(kind: &ParserKind, folder: &str, group: &str, name: &str) -> b
         _ => unreachable!()
     }
     true // TODO: check for error and return proper
+}
+
+
+pub async fn search_dep(kind: &ParserKind, term: &str) -> Option<Vec<SearchDep>> {
+    match kind {
+        ParserKind::RustCargo => RustCargo::search_dep(term).await,
+        _ => unreachable!()
+    }
 }
