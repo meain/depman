@@ -195,7 +195,7 @@ impl RustCargo {
         Ok(())
     }
 
-    pub async fn search_dep(term: &str) -> Option<Vec<SearchDep>> {
+    pub async fn search_dep(term: &str) -> Result<Vec<SearchDep>, Box<dyn std::error::Error>> {
         let url = format!(
             "https://crates.io/api/v1/crates?page=1&per_page=20&q={}",
             term
@@ -204,12 +204,10 @@ impl RustCargo {
             .get(&url)
             .header("User-Agent", "depman (github.com/meain/depman)")
             .send()
-            .await
-            .ok()?
+            .await?
             .json()
-            .await
-            .ok()?;
-        Some(
+            .await?;
+        Ok(
             resp.crates
                 .into_iter()
                 .map(|x| SearchDep {

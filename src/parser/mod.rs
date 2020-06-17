@@ -10,6 +10,8 @@ use std::string::ToString;
 use determinekind::ParserKind;
 use crate::render::InstallCandidate;
 
+use serde::{Deserialize, Serialize};
+
 pub enum UpgradeType {
     None,
     Patch,
@@ -34,7 +36,7 @@ pub struct Config {
 }
 #[derive(Debug, Clone)]
 pub struct DepInfo {
-    author: Option<String>,
+    author: Option<Author>,
     homepage: Option<String>,
     repository: Option<String>, // package repo
     license: Option<String>,
@@ -48,6 +50,25 @@ pub struct Project {
     config: Config,
     lockfile: Lockfile,
     metadata: MetaData,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Author {
+    name: String,
+    url: Option<String>,
+    email: Option<String>,
+}
+impl Author {
+    pub fn to_string(&self) -> String {
+        let mut author_string = self.name.to_string();
+        if let Some(v) = &self.email {
+            author_string = format!("{} <{}>", author_string, &v.to_string());
+        }
+        if let Some(v) = &self.url {
+            author_string = format!("{} [{}]", author_string, &v.to_string());
+        }
+        author_string
+    }
 }
 
 pub fn stringify<T: ToString>(value: &Option<T>) -> String {
@@ -234,7 +255,11 @@ impl Project {
     }
 
     pub fn get_author(&self, name: &str) -> Option<String> {
-        self.metadata.get(name).unwrap().author.clone()
+        let author = &self.metadata.get(name).unwrap().author;
+        match author {
+            Some(a) => Some(a.to_string()),
+            None => None
+        }
     }
     pub fn get_homepage(&self, name: &str) -> Option<String> {
         self.metadata.get(name).unwrap().homepage.clone()
@@ -258,6 +283,6 @@ impl Project {
     }
 
     pub async fn search_dep(&self, kind: &ParserKind, term: &str) -> Option<Vec<SearchDep>> {
-        parsers::search_dep(kind, term).await
+        parsers::search_dep(kind, term).await.ok()
     }
 }
