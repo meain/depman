@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 use toml::Value;
 use toml_edit::{value, Document};
 
-use crate::{render::InstallCandidate, parser::{Config, DepInfo, DependencyGroup, Lockfile, SearchDep}};
+use crate::{
+    parser::{Config, DepInfo, DependencyGroup, Lockfile, SearchDep},
+    render::InstallCandidate,
+};
 
 /// For pulling versions
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -73,21 +76,28 @@ impl RustCargo {
         let mut groups: BTreeMap<String, DependencyGroup> = BTreeMap::new();
         if let Value::Table(conf) = parsed {
             for key in conf.keys() {
-                if key == "dependencies" {
-                    if let Value::Table(gr) = &conf["dependencies"] {
-                        let mut group: BTreeMap<String, Option<VersionReq>> = BTreeMap::new();
-                        for dep in gr.keys() {
-                            let version_req = match &gr[dep] {
-                                Value::String(v) => match VersionReq::parse(&v) {
-                                    Ok(vr) => Some(vr),
-                                    Err(_) => None,
-                                },
-                                _ => None,
-                            };
-                            group.insert(dep.to_string(), version_req);
-                        }
-                        groups.insert("dependencies".to_string(), group);
+                if ![
+                    "dependencies".to_string(),
+                    "dev-dependencies".to_string(),
+                    "build-dependencies".to_string(),
+                ]
+                .contains(key)
+                {
+                    continue;
+                }
+                if let Value::Table(gr) = &conf[key] {
+                    let mut group: BTreeMap<String, Option<VersionReq>> = BTreeMap::new();
+                    for dep in gr.keys() {
+                        let version_req = match &gr[dep] {
+                            Value::String(v) => match VersionReq::parse(&v) {
+                                Ok(vr) => Some(vr),
+                                Err(_) => None,
+                            },
+                            _ => None,
+                        };
+                        group.insert(dep.to_string(), version_req);
                     }
+                    groups.insert(key.to_string(), group);
                 }
             }
         }
@@ -154,7 +164,11 @@ impl RustCargo {
         })
     }
 
-    pub fn delete_dep(folder: &str, group: &str, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn delete_dep(
+        folder: &str,
+        group: &str,
+        name: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let path_string = format!("{}/Cargo.toml", folder);
         let file_contents = std::fs::read_to_string(&path_string)?;
         let mut doc = file_contents
@@ -165,7 +179,10 @@ impl RustCargo {
         Ok(())
     }
 
-    pub fn install_dep(dep: InstallCandidate, folder: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn install_dep(
+        dep: InstallCandidate,
+        folder: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let path_string = format!("{}/Cargo.toml", folder);
         let file_contents = std::fs::read_to_string(&path_string)?;
         let mut doc = file_contents.parse::<Document>()?;
@@ -187,16 +204,19 @@ impl RustCargo {
             .get(&url)
             .header("User-Agent", "depman (github.com/meain/depman)")
             .send()
-            .await.ok()?
+            .await
+            .ok()?
             .json()
-            .await.ok()?;
-        Some(resp
-            .crates
-            .into_iter()
-            .map(|x| SearchDep {
-                name: x.name,
-                version: x.newest_version,
-            })
-            .collect())
+            .await
+            .ok()?;
+        Some(
+            resp.crates
+                .into_iter()
+                .map(|x| SearchDep {
+                    name: x.name,
+                    version: x.newest_version,
+                })
+                .collect(),
+        )
     }
 }
