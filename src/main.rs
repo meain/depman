@@ -157,15 +157,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             Key::Down | Key::Char('j') => app.next(),
                             Key::Up | Key::Char('k') => app.previous(),
                             Key::Char('\n') => {
-                                // let is_installed =
-                                //     Config::install_dep(kind, app.get_install_candidate(), folder);
-                                // if is_installed {
-                                //     app.set_message("Dependency updated!");
-                                //     reload = true;
-                                // } else {
-                                //     app.set_message("Update failed.");
-                                //     reload = true;
-                                // }
+                                let is_installed = app.install_dep();
+                                if is_installed {
+                                    app.set_message("Dependency updated!");
+                                    reload = true;
+                                } else {
+                                    app.set_message("Update failed.");
+                                    reload = true;
+                                }
                             }
                             Key::Char('g') => app.top(),
                             Key::Char('G') => app.bottom(),

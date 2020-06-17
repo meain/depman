@@ -6,9 +6,9 @@ use std::fs;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use toml::Value;
-use toml_edit::Document;
+use toml_edit::{value, Document};
 
-use crate::parser::{Config, DepInfo, DependencyGroup, Lockfile, SearchDep};
+use crate::{render::InstallCandidate, parser::{Config, DepInfo, DependencyGroup, Lockfile, SearchDep}};
 
 /// For pulling versions
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -154,14 +154,28 @@ impl RustCargo {
         })
     }
 
-    pub fn delete_dep(folder: &str, group: &str, name: &str) {
+    pub fn delete_dep(folder: &str, group: &str, name: &str) -> Result<(), Box<dyn std::error::Error>> {
         let path_string = format!("{}/Cargo.toml", folder);
-        let file_contents = std::fs::read_to_string(&path_string).unwrap();
+        let file_contents = std::fs::read_to_string(&path_string)?;
         let mut doc = file_contents
             .parse::<Document>()
             .expect("Invalid config file");
         doc[group][name] = toml_edit::Item::None;
-        std::fs::write(&path_string, doc.to_string()).unwrap();
+        std::fs::write(&path_string, doc.to_string())?;
+        Ok(())
+    }
+
+    pub fn install_dep(dep: InstallCandidate, folder: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let path_string = format!("{}/Cargo.toml", folder);
+        let file_contents = std::fs::read_to_string(&path_string)?;
+        let mut doc = file_contents.parse::<Document>()?;
+        if doc[&dep.kind][&dep.name]["version"].is_none() {
+            doc[&dep.kind][&dep.name] = value(dep.version);
+        } else {
+            doc[&dep.kind][&dep.name]["version"] = value(dep.version);
+        }
+        std::fs::write(&path_string, doc.to_string())?;
+        Ok(())
     }
 
     pub async fn search_dep(term: &str) -> Option<Vec<SearchDep>> {

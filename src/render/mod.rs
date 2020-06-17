@@ -82,7 +82,7 @@ impl App {
         }
     }
 
-    pub fn get_selected_version(&mut self) -> String {
+    pub fn get_selected_version(&self) -> String {
         self.versions.get_item()
     }
 
@@ -279,29 +279,39 @@ impl App {
         }
     }
 
-    // pub fn get_install_candidate(&mut self) -> Option<InstallCandidate> {
-    //     match self.popup {
-    //         PopupKind::Versions => {
-    //             let current_dep = self.get_current_dep_name().unwrap();
-    //             let version_string = self.get_selected_version();
-    //             Some(InstallCandidate {
-    //                 name: current_dep,
-    //                 version: version_string,
-    //                 kind: self.tabs.titles[self.tabs.index].to_string(),
-    //             })
-    //         }
-    //         PopupKind::SearchList => {
-    //             let search_dep =
-    //                 self.search_result.items[self.search_result.state.selected().unwrap()].clone();
-    //             Some(InstallCandidate {
-    //                 name: search_dep,  // TODO
-    //                 version: search_dep,
-    //                 kind: self.tabs.titles[self.tabs.index].to_string(),
-    //             })
-    //         }
-    //         _ => None,
-    //     }
-    // }
+    pub fn get_install_candidate(&self) -> Option<InstallCandidate> {
+        match self.popup {
+            PopupKind::Versions => {
+                let current_dep = self.get_current_dep_name().unwrap();
+                let version_string = self.get_selected_version();
+                Some(InstallCandidate {
+                    name: current_dep,
+                    version: version_string,
+                    kind: self.tabs.titles[self.tabs.index].to_string(),
+                })
+            }
+            PopupKind::SearchList => {
+                let search_dep =
+                    self.search_result.items[self.search_result.state.selected().unwrap()].clone();
+                Some(InstallCandidate {
+                    name: search_dep.name,
+                    version: search_dep.version,
+                    kind: self.get_current_group_name().unwrap(),
+                })
+            }
+            _ => None,
+        }
+    }
+
+    pub fn install_dep(&self) -> bool {
+        let install_candidate = self.get_install_candidate();
+        if let Some(ic) = install_candidate {
+            self.project.install_dep(&self.kind, &self.folder, ic);
+            true
+        } else {
+            false
+        }
+    }
 
     pub fn set_message(&mut self, message: &str) {
         self.message = Some(message.to_string());

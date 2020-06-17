@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 use std::string::ToString;
 
 use determinekind::ParserKind;
+use crate::render::InstallCandidate;
 
 pub enum UpgradeType {
     None,
@@ -250,6 +251,10 @@ impl Project {
 
     pub fn delete_dep(&self, kind: &ParserKind, folder: &str, group: &str, name: &str) -> bool {
         parsers::delete_dep(kind, folder, group, name)
+    }
+
+    pub fn install_dep(&self, kind: &ParserKind, folder: &str, dep: InstallCandidate) -> bool {
+        parsers::install_dep(kind, folder, dep)
     }
 
     pub async fn search_dep(&self, kind: &ParserKind, term: &str) -> Option<Vec<SearchDep>> {
