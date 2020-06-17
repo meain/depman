@@ -33,7 +33,7 @@ pub struct Config {
     pub groups: BTreeMap<String, DependencyGroup>,
 }
 #[derive(Debug, Clone)]
-struct DepInfo {
+pub struct DepInfo {
     author: Option<String>,
     homepage: Option<String>,
     repository: Option<String>, // package repo
