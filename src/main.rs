@@ -160,11 +160,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 let is_installed = app.install_dep();
                                 if is_installed {
                                     app.set_message("Dependency updated!");
-                                    reload = true;
                                 } else {
                                     app.set_message("Update failed.");
-                                    reload = true;
                                 }
+                                reload = true;
                             }
                             Key::Char('g') => app.top(),
                             Key::Char('G') => app.bottom(),
