@@ -18,24 +18,29 @@ use tui::Terminal;
 use tokio;
 
 use parser::determinekind::ParserKind;
-use parser::Project;
+use parser::{stringify, Project};
 
-// #[allow(dead_code)]
-// fn printer(config: &Config) {
-//     for (gn, group) in config.dep_groups.iter() {
-//         for (_, dep) in group.iter() {
-//             let name = &dep.name;
-//             let specified_version = &dep.get_specified_version();
-//             let current_version = &dep.get_current_version();
-//             let latest_version = &dep.get_latest_version();
-//             let latest_semver_version = &dep.get_latest_semver_version();
-//             println!(
-//                 "{}: [{}] {}({}) => {}({})",
-//                 gn, name, specified_version, current_version, latest_semver_version, latest_version
-//             );
-//         }
-//     }
-// }
+#[allow(dead_code)]
+fn printer(config: &Project) {
+    for group in config.get_groups().iter() {
+        for name in config.get_deps_in_group(group) {
+            let name = &name;
+            let specified_version = &config.get_specified_version(group, name);
+            let current_version = &config.get_current_version(name);
+            let latest_version = &config.get_latest_version(name);
+            let latest_semver_version = &config.get_semver_version(group, name);
+            println!(
+                "[{}] {} : {}({}) => {}({})",
+                group,
+                name,
+                stringify(specified_version),
+                stringify(current_version),
+                stringify(latest_semver_version),
+                stringify(latest_version)
+            );
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -47,11 +52,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let kind = ParserKind::determine_kind(&folder).expect("Unsupported package manager");
     println!("Fetching dependency info...");
     let project = Project::parse(folder, &kind).await;
-    // printer(&config);
+    // printer(&project);
 
     if true {
-        let stdout = io::stdout();
-
         let stdout = io::stdout().into_raw_mode()?;
         let stdout = MouseTerminal::from(stdout);
         let stdout = AlternateScreen::from(stdout);
