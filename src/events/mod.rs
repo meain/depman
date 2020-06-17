@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 pub mod event;
 
 use rand::distributions::{Distribution, Uniform};
@@ -97,13 +96,13 @@ impl<T: std::clone::Clone> StatefulList<T> {
     pub fn with_items(items: Vec<T>) -> StatefulList<T> {
         StatefulList {
             state: ListState::default(),
-            items: items,
+            items,
         }
     }
 
     #[allow(dead_code)]
     pub fn reset(&mut self) {
-        if self.items.len() > 0 {
+        if !self.items.is_empty() {
             self.state.select(Some(0));
         } else {
             self.state.select(None);
@@ -111,7 +110,7 @@ impl<T: std::clone::Clone> StatefulList<T> {
     }
 
     pub fn first(&mut self) {
-        if self.items.len() > 0 {
+        if !self.items.is_empty() {
             self.state.select(Some(0));
         } else {
             self.state.select(None);
@@ -119,7 +118,7 @@ impl<T: std::clone::Clone> StatefulList<T> {
     }
 
     pub fn last(&mut self) {
-        if self.items.len() > 0 {
+        if !self.items.is_empty() {
             self.state.select(Some(self.items.len() - 1));
         } else {
             self.state.select(None);

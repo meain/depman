@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 use std::io;
 use std::sync::mpsc;
 use std::sync::{
@@ -18,6 +17,7 @@ pub enum Event<I> {
 
 /// A small event handler that wrap termion input and tick events. Each event
 /// type is handled in its own thread and returned to a common `Receiver`
+#[allow(dead_code)]
 pub struct Events {
     rx: mpsc::Receiver<Event<Key>>,
     input_handle: thread::JoinHandle<()>,
@@ -54,28 +54,21 @@ impl Events {
             thread::spawn(move || {
                 let stdin = io::stdin();
                 for evt in stdin.keys() {
-                    match evt {
-                        Ok(key) => {
-                            if let Err(_) = tx.send(Event::Input(key)) {
-                                return;
-                            }
-                            if !ignore_exit_key.load(Ordering::Relaxed) && key == config.exit_key {
-                                return;
-                            }
+                    if let Ok(key) = evt {
+                        if tx.send(Event::Input(key)).is_err() {
+                            return;
                         }
-                        Err(_) => {}
+                        if !ignore_exit_key.load(Ordering::Relaxed) && key == config.exit_key {
+                            return;
+                        }
                     }
                 }
             })
         };
         let tick_handle = {
-            let tx = tx.clone();
-            thread::spawn(move || {
-                let tx = tx.clone();
-                loop {
-                    tx.send(Event::Tick).unwrap();
-                    thread::sleep(config.tick_rate);
-                }
+            thread::spawn(move || loop {
+                tx.send(Event::Tick).unwrap();
+                thread::sleep(config.tick_rate);
             })
         };
         Events {

@@ -65,10 +65,10 @@ impl JavascriptNpm {
     pub fn parse_config(folder: &str) -> Config {
         let path_string = format!("{}/package.json", folder);
         let path = Path::new(&path_string);
-        let file = File::open(path).expect(&format!("Unable to read {}", &path_string));
+        let file = File::open(path).unwrap_or_else(|_| panic!("Unable to read {}", &path_string));
         let reader = BufReader::new(file);
         let parsed: JavascriptPackageJson =
-            serde_json::from_reader(reader).expect(&format!("Unable to parse {}", &path_string));
+            serde_json::from_reader(reader).unwrap_or_else(|_| panic!("Unable to parse {}", &path_string));
 
         let mut groups: BTreeMap<String, DependencyGroup> = BTreeMap::new();
         if let Some(grp) = parsed.dependencies {
@@ -101,10 +101,10 @@ impl JavascriptNpm {
     pub fn parse_lockfile(folder: &str) -> Lockfile {
         let path_string = format!("{}/package-lock.json", folder);
         let path = Path::new(&path_string);
-        let file = File::open(path).expect(&format!("Unable to read {}", &path_string));
+        let file = File::open(path).unwrap_or_else(|_| panic!("Unable to read {}", &path_string));
         let reader = BufReader::new(file);
         let parsed: JavascriptPackageJsonLockfile =
-            serde_json::from_reader(reader).expect(&format!("Unable to parse {}", &path_string));
+            serde_json::from_reader(reader).unwrap_or_else(|_| panic!("Unable to parse {}", &path_string));
 
         let mut packages: Lockfile = HashMap::new();
         for dep in parsed.dependencies.keys() {
@@ -113,18 +113,17 @@ impl JavascriptNpm {
         packages
     }
 
+    #[allow(clippy::useless_let_if_seq)]
     pub async fn fetch_dep_info(name: &str) -> Result<DepInfo, Box<dyn std::error::Error>> {
         let mut url = format!("https://registry.npmjs.org/{}", name);
-        match env::var("MEAIN_TEST_ENV") {
-            Ok(_) => url = format!("http://localhost:8000/npm/{}.json", name),
-            _ => {}
+        if env::var("MEAIN_TEST_ENV").is_ok() {
+            url = format!("http://localhost:8000/npm/{}.json", name);
         }
         let resp: NpmResponse = reqwest::get(&url).await?.json().await?;
 
         let versions = resp
             .versions
             .keys()
-            .into_iter()
             .map(|x| Version::parse(&x).unwrap())
             .collect();
 

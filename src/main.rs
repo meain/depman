@@ -15,8 +15,6 @@ use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::Terminal;
 
-use tokio;
-
 use parser::determinekind::ParserKind;
 use parser::{stringify, Project};
 
@@ -45,10 +43,7 @@ fn printer(config: &Project) {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
-    let folder = match args.len() > 1 {
-        true => &args[1],
-        false => ".",
-    };
+    let folder = if args.len() > 1 { &args[1] } else { "." };
     let kind = ParserKind::determine_kind(&folder).expect("Unsupported package manager");
     println!("Fetching dependency info...");
     let project = Project::parse(folder, &kind).await;
@@ -112,69 +107,66 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             }
 
-            match events.next()? {
-                Event::Input(input) => {
-                    match app.popup {
-                        PopupKind::SearchInput => match input {
-                            Key::Char('\n') => {
-                                events.enable_exit_key();
-                                app.set_message(&format!("Searching {}...", &app.search_string));
-                                app.popup = PopupKind::Message;
-                                search_in_next_iter = Some(app.search_string.to_string());
-                            }
-                            Key::Char(_) | Key::Backspace => app.search_update(input),
-                            Key::Esc => {
-                                events.enable_exit_key();
-                                app.search_string = "".to_string();
-                                app.popup = PopupKind::None;
-                            }
-                            _ => {}
-                        },
-                        _ => match input {
-                            Key::Char('q') => {
-                                break;
-                            }
-                            Key::Ctrl('c') => {
-                                drop(terminal);
-                                std::process::exit(0);
-                            }
-                            Key::Char('s') => {
-                                events.disable_exit_key();
-                                app.popup = PopupKind::SearchInput;
-                            }
-                            Key::Char('D') => {
-                                if app.delete_current_dep() {
-                                    app.set_message("Dependency removed");
-                                    reload = true;
-                                }
-                            }
-                            Key::Char('o') => app.open_homepage(),
-                            Key::Char('p') => app.open_repository(),
-                            Key::Char('?') => app.toggle_help_menu(), // h is for next tab
-                            Key::Esc => {
-                                app.unwrap_popup();
-                            }
-                            Key::Char('v') | Key::Char(' ') => app.toggle_versions_menu(),
-                            Key::Left | Key::Char('h') => app.tab_previous(),
-                            Key::Right | Key::Char('l') | Key::Char('\t') => app.tab_next(),
-                            Key::Down | Key::Char('j') => app.next(),
-                            Key::Up | Key::Char('k') => app.previous(),
-                            Key::Char('\n') => {
-                                let is_installed = app.install_dep();
-                                if is_installed {
-                                    app.set_message("Dependency updated!");
-                                } else {
-                                    app.set_message("Update failed.");
-                                }
+            if let Event::Input(input) = events.next()? {
+                match app.popup {
+                    PopupKind::SearchInput => match input {
+                        Key::Char('\n') => {
+                            events.enable_exit_key();
+                            app.set_message(&format!("Searching {}...", &app.search_string));
+                            app.popup = PopupKind::Message;
+                            search_in_next_iter = Some(app.search_string.to_string());
+                        }
+                        Key::Char(_) | Key::Backspace => app.search_update(input),
+                        Key::Esc => {
+                            events.enable_exit_key();
+                            app.search_string = "".to_string();
+                            app.popup = PopupKind::None;
+                        }
+                        _ => {}
+                    },
+                    _ => match input {
+                        Key::Char('q') => {
+                            break;
+                        }
+                        Key::Ctrl('c') => {
+                            drop(terminal);
+                            std::process::exit(0);
+                        }
+                        Key::Char('s') => {
+                            events.disable_exit_key();
+                            app.popup = PopupKind::SearchInput;
+                        }
+                        Key::Char('D') => {
+                            if app.delete_current_dep() {
+                                app.set_message("Dependency removed");
                                 reload = true;
                             }
-                            Key::Char('g') => app.top(),
-                            Key::Char('G') => app.bottom(),
-                            _ => {}
-                        },
-                    }
+                        }
+                        Key::Char('o') => app.open_homepage(),
+                        Key::Char('p') => app.open_repository(),
+                        Key::Char('?') => app.toggle_help_menu(), // h is for next tab
+                        Key::Esc => {
+                            app.unwrap_popup();
+                        }
+                        Key::Char('v') | Key::Char(' ') => app.toggle_versions_menu(),
+                        Key::Left | Key::Char('h') => app.tab_previous(),
+                        Key::Right | Key::Char('l') | Key::Char('\t') => app.tab_next(),
+                        Key::Down | Key::Char('j') => app.next(),
+                        Key::Up | Key::Char('k') => app.previous(),
+                        Key::Char('\n') => {
+                            let is_installed = app.install_dep();
+                            if is_installed {
+                                app.set_message("Dependency updated!");
+                            } else {
+                                app.set_message("Update failed.");
+                            }
+                            reload = true;
+                        }
+                        Key::Char('g') => app.top(),
+                        Key::Char('G') => app.bottom(),
+                        _ => {}
+                    },
                 }
-                _ => {}
             }
         }
     }

@@ -34,27 +34,15 @@ pub async fn fetch_dep_info(
 
 pub fn delete_dep(kind: &ParserKind, folder: &str, group: &str, name: &str) -> bool {
     match kind {
-        ParserKind::RustCargo => match RustCargo::delete_dep(folder, group, name) {
-            Ok(_) => true,
-            Err(_) => false,
-        },
-        ParserKind::JavascriptNpm => match JavascriptNpm::delete_dep(folder, group, name) {
-            Ok(_) => true,
-            Err(_) => false,
-        },
+        ParserKind::RustCargo => RustCargo::delete_dep(folder, group, name).is_ok(),
+        ParserKind::JavascriptNpm => JavascriptNpm::delete_dep(folder, group, name).is_ok()
     }
 }
 
 pub fn install_dep(kind: &ParserKind, folder: &str, dep: InstallCandidate) -> bool {
     match kind {
-        ParserKind::RustCargo => match RustCargo::install_dep(dep, folder) {
-            Ok(_) => true,
-            Err(_) => false,
-        },
-        ParserKind::JavascriptNpm => match JavascriptNpm::install_dep(dep, folder) {
-            Ok(_) => true,
-            Err(_) => false,
-        },
+        ParserKind::RustCargo => RustCargo::install_dep(dep, folder).is_ok(),
+        ParserKind::JavascriptNpm => JavascriptNpm::install_dep(dep, folder).is_ok()
     }
 }
 

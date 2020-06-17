@@ -51,9 +51,9 @@ impl App {
         let dep_kinds = project.get_groups();
         let dep_names = project.get_deps_in_group(&dep_kinds[0]);
         let mut dep_versions = vec![];
-        if dep_names.len() > 0 {
+        if !dep_names.is_empty() {
             if let Some(dep) = project.get_dep_versions(&dep_names[0]) {
-                dep_versions = dep.into_iter().map(|x| x.to_string()).collect();
+                dep_versions = dep.iter().map(|x| x.to_string()).collect();
             }
         }
         App {
@@ -119,7 +119,7 @@ impl App {
             PopupKind::Help => PopupKind::None,
             PopupKind::Versions => PopupKind::None,
             PopupKind::Message => {
-                if self.search_string.len() > 0 {
+                if !self.search_string.is_empty() {
                     PopupKind::SearchInput
                 } else {
                     PopupKind::None
@@ -240,7 +240,7 @@ impl App {
         let dep = match self.items.state.selected() {
             Some(m) => match m {
                 0 => {
-                    if self.items.items.len() == 0 {
+                    if self.items.items.is_empty(){
                         None
                     } else {
                         Some(0)
@@ -323,7 +323,7 @@ impl App {
     }
 
     fn get_current_dep_name(&self) -> Option<String> {
-        if &self.tabs.index < &self.tabs.titles.len() {
+        if self.tabs.index < self.tabs.titles.len() {
             // let group = &self.tabs.titles[self.tabs.index];
             match &self.items.state.selected() {
                 Some(_) => Some(self.items.get_item()),
@@ -632,7 +632,7 @@ impl App {
     }
 
     fn get_current_group_name(&self) -> Option<String> {
-        if &self.tabs.index < &self.tabs.titles.len() {
+        if self.tabs.index < self.tabs.titles.len() {
             Some(self.tabs.titles[self.tabs.index].to_string())
         } else {
             None

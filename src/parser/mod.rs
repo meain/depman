@@ -58,8 +58,8 @@ pub struct Author {
     url: Option<String>,
     email: Option<String>,
 }
-impl Author {
-    pub fn to_string(&self) -> String {
+impl ToString for Author {
+    fn to_string(&self) -> String {
         let mut author_string = self.name.to_string();
         if let Some(v) = &self.email {
             author_string = format!("{} <{}>", author_string, &v.to_string());
@@ -86,7 +86,6 @@ impl Project {
         let dep_names: Vec<String> = config
             .groups
             .keys()
-            .into_iter()
             .flat_map(|x| config.groups[x].keys())
             .map(|x| x.to_string())
             .collect();
@@ -94,17 +93,15 @@ impl Project {
         let fetchers = dep_names
             .clone()
             .into_iter()
-            .map(|x| parsers::fetch_dep_info(x.to_string(), kind));
-        let results = try_join_all(fetchers).await.unwrap_or(vec![]);
+            .map(|x| parsers::fetch_dep_info(x, kind));
+        let results = try_join_all(fetchers).await.unwrap_or_default();
         let mut metadata = HashMap::new();
-        if &results.len() == &dep_names.len() {
-            let mut count = 0;
-            for item in dep_names {
+        if results.len() == dep_names.len() {
+            for (count, item) in dep_names.into_iter().enumerate() {
                 let mut api_data = results[count].clone();
                 api_data.versions.sort();
                 api_data.versions = api_data.versions.into_iter().rev().collect();
                 metadata.insert(item, api_data);
-                count += 1;
             }
         }
 
@@ -122,26 +119,23 @@ impl Project {
         let dep_names: Vec<String> = config
             .groups
             .keys()
-            .into_iter()
             .flat_map(|x| config.groups[x].keys())
             .map(|x| x.to_string())
-            .filter(|x| !self.metadata.keys().into_iter().any(|e| e == x))
+            .filter(|x| !self.metadata.keys().any(|e| e == x))
             .collect();
 
         let fetchers = dep_names
             .clone()
             .into_iter()
-            .map(|x| parsers::fetch_dep_info(x.to_string(), kind));
-        let results = try_join_all(fetchers).await.unwrap_or(vec![]);
+            .map(|x| parsers::fetch_dep_info(x, kind));
+        let results = try_join_all(fetchers).await.unwrap_or_default();
         let mut metadata = HashMap::new();
-        if &results.len() == &dep_names.len() {
-            let mut count = 0;
-            for item in dep_names {
+        if results.len() == dep_names.len() {
+            for (count, item) in dep_names.into_iter().enumerate() {
                 let mut api_data = results[count].clone();
                 api_data.versions.sort();
                 api_data.versions = api_data.versions.into_iter().rev().collect();
                 metadata.insert(item, api_data);
-                count += 1;
             }
         }
         metadata.extend(self.metadata.clone());
@@ -172,11 +166,7 @@ impl Project {
     }
 
     pub fn is_versions_available(&self, name: &str) -> bool {
-        if let Some(_) = &self.metadata.get(name) {
-            true
-        } else {
-            false
-        }
+        self.metadata.get(name).is_some()
     }
 
     pub fn get_dep_versions(&self, name: &str) -> Option<&Vec<Version>> {
@@ -198,7 +188,7 @@ impl Project {
         if let Some(sv) = specified_version {
             if let Some(vers) = versions {
                 if let Some(cv) = current_version {
-                    let current_pos = vers.iter().position(|r| &r == &cv);
+                    let current_pos = vers.iter().position(|r| r == cv);
                     if let Some(cp) = current_pos {
                         let mut last = cv;
                         for i in (0..cp).rev() {

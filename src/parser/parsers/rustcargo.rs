@@ -49,9 +49,9 @@ impl RustCargo {
     pub fn parse_config(folder: &str) -> Config {
         let path_string = format!("{}/Cargo.toml", folder);
         let text =
-            fs::read_to_string(&path_string).expect(&format!("Unable to read {}", &path_string));
+            fs::read_to_string(&path_string).unwrap_or_else(|_| panic!("Unable to read {}", &path_string));
         let parsed: Value =
-            toml::from_str(&text).expect(&format!("Unable to parse {}", &path_string));
+            toml::from_str(&text).unwrap_or_else(|_| panic!("Unable to parse {}", &path_string));
 
         let mut name = None;
         let mut version = None;
@@ -112,9 +112,9 @@ impl RustCargo {
     pub fn parse_lockfile(folder: &str) -> Lockfile {
         let path_string = format!("{}/Cargo.lock", folder);
         let text =
-            fs::read_to_string(&path_string).expect(&format!("Unable to read {}", &path_string));
+            fs::read_to_string(&path_string).unwrap_or_else(|_| panic!("Unable to read {}", &path_string));
         let parsed: Value =
-            toml::from_str(&text).expect(&format!("Unable to parse {}", &path_string));
+            toml::from_str(&text).unwrap_or_else(|_| panic!("Unable to parse {}", &path_string));
 
         let mut packages = HashMap::new();
         if let Value::Table(conf) = parsed {
@@ -137,7 +137,7 @@ impl RustCargo {
 
     pub async fn fetch_dep_info(name: &str) -> Result<DepInfo, Box<dyn std::error::Error>> {
         let mut url = format!("https://crates.io/api/v1/crates/{}", name);
-        if let Ok(_) = env::var("MEAIN_TEST_ENV") {
+        if env::var("MEAIN_TEST_ENV").is_ok() {
             url = format!("http://localhost:8000/cargo/{}.json", name)
         }
         let resp: CargoResponse = reqwest::Client::new()
