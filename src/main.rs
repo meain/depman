@@ -149,7 +149,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             app.unwrap_popup();
                         }
                         Key::Char('v') | Key::Char(' ') => app.toggle_versions_menu(),
-                        Key::Left | Key::Char('h') => app.tab_previous(),
+                        Key::Left | Key::Char('h') | Key::BackTab => app.tab_previous(),
                         Key::Right | Key::Char('l') | Key::Char('\t') => app.tab_next(),
                         Key::Down | Key::Char('j') => app.next(),
                         Key::Up | Key::Char('k') => app.previous(),
