@@ -1,3 +1,5 @@
+use std::collections::hash_map::HashMap;
+
 use crate::events::{StatefulList, TabsState};
 use termion::event::Key;
 use tui::backend::Backend;
@@ -44,6 +46,7 @@ pub struct App {
     message: Option<String>,
     pub search_string: String,
     pub search_result: StatefulList<SearchDep>,
+    updated_items: HashMap<String, String>
 }
 
 impl App {
@@ -68,6 +71,7 @@ impl App {
             help_content_pos: 0,
             search_result: StatefulList::with_items(vec![]),
             search_string: "".to_string(),
+            updated_items: HashMap::new()
         }
     }
 
@@ -309,9 +313,10 @@ impl App {
         }
     }
 
-    pub fn install_dep(&self) -> bool {
+    pub fn install_dep(&mut self) -> bool {
         let install_candidate = self.get_install_candidate();
         if let Some(ic) = install_candidate {
+            self.updated_items.insert(ic.name.to_string(), ic.version.to_string());
             self.project.install_dep(&self.kind, &self.folder, ic);
             true
         } else {
@@ -657,13 +662,18 @@ impl App {
                     UpgradeType::Breaking => "+",
                     _ => "",
                 };
+                let updated_string = match self.updated_items.get(item){
+                    Some(v) => format!(" ... updated to {}", v),
+                    None => "".to_string()
+                };
                 items.push(Text::styled(
                     format!(
-                        "{} ({} > {})  {}",
+                        "{} ({} > {})  {} {}",
                         item,
                         stringify(&self.project.get_current_version(&item)),
                         stringify(&self.project.get_semver_version(&current_tab, &item)),
-                        breaking_changes_string
+                        breaking_changes_string,
+                        updated_string
                     ),
                     Style::default().fg(get_version_color(upgrade_type)),
                 ));
