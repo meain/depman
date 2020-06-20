@@ -245,23 +245,23 @@ impl Project {
     }
 
     pub fn get_author(&self, name: &str) -> Option<String> {
-        let author = &self.metadata.get(name).unwrap().author;
+        let author = &self.metadata.get(name)?.author;
         match author {
             Some(a) => Some(a.to_string()),
             None => None
         }
     }
     pub fn get_homepage(&self, name: &str) -> Option<String> {
-        self.metadata.get(name).unwrap().homepage.clone()
+        self.metadata.get(name)?.homepage.clone()
     }
     pub fn get_repository(&self, name: &str) -> Option<String> {
-        self.metadata.get(name).unwrap().repository.clone()
+        self.metadata.get(name)?.repository.clone()
     }
     pub fn get_license(&self, name: &str) -> Option<String> {
-        self.metadata.get(name).unwrap().license.clone()
+        self.metadata.get(name)?.license.clone()
     }
     pub fn get_description(&self, name: &str) -> Option<String> {
-        self.metadata.get(name).unwrap().description.clone()
+        self.metadata.get(name)?.description.clone()
     }
 
     pub fn delete_dep(&self, kind: &ParserKind, folder: &str, group: &str, name: &str) -> bool {

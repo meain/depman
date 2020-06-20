@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // printer(&project);
 
     if true {
-        let stdout = io::stdout();
+        // let stdout = io::stdout();
 
         let stdout = io::stdout().into_raw_mode()?;
         let stdout = MouseTerminal::from(stdout);
@@ -166,6 +166,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                         Key::Char('g') => app.top(),
                         Key::Char('G') => app.bottom(),
+                        Key::Char('R') => reload = true,
                         _ => {}
                     },
                 }
