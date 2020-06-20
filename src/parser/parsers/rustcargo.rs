@@ -26,7 +26,7 @@ struct CargoResponseVersion {
     num: String,
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CargoResponse {
+struct CargoResponse {
     #[serde(alias = "crate")]
     info: CargoResponseCrate,
     versions: Vec<CargoResponseVersion>,
