@@ -240,13 +240,19 @@ impl App {
         let dep = match self.items.state.selected() {
             Some(m) => match m {
                 0 => {
-                    if self.items.items.is_empty(){
+                    if self.items.items.is_empty() {
                         None
                     } else {
                         Some(0)
                     }
                 }
-                m => Some(m - 1),
+                m => {
+                    if self.items.items.len() > m+1 {
+                        Some(m)
+                    } else {
+                        Some(m - 1)
+                    }
+                }
             },
             None => None,
         };
