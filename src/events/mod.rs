@@ -153,11 +153,15 @@ impl<T: std::clone::Clone> StatefulList<T> {
         self.state.select(Some(i));
     }
 
-    pub fn get_item(&self) -> T {
+    pub fn get_item(&self) -> Option<T> {
         let i = match self.state.selected() {
             Some(i) => i,
             None => 0,
         };
-        self.items[i].clone()
+        if self.items.len() > i {
+            Some(self.items[i].clone())
+        } else {
+            None
+        }
     }
 }

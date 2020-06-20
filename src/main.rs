@@ -50,6 +50,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // printer(&project);
 
     if true {
+        let stdout = io::stdout();
+
         let stdout = io::stdout().into_raw_mode()?;
         let stdout = MouseTerminal::from(stdout);
         let stdout = AlternateScreen::from(stdout);

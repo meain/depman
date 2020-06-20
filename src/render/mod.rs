@@ -82,8 +82,8 @@ impl App {
         }
     }
 
-    pub fn get_selected_version(&self) -> String {
-        self.versions.get_item()
+    pub fn get_selected_version(&self) -> Option<String> {
+        Some(self.versions.get_item()?)
     }
 
     pub fn open_homepage(&mut self) {
@@ -283,7 +283,7 @@ impl App {
         match self.popup {
             PopupKind::Versions => {
                 let current_dep = self.get_current_dep_name().unwrap();
-                let version_string = self.get_selected_version();
+                let version_string = self.get_selected_version()?;
                 Some(InstallCandidate {
                     name: current_dep,
                     version: version_string,
@@ -326,7 +326,7 @@ impl App {
         if self.tabs.index < self.tabs.titles.len() {
             // let group = &self.tabs.titles[self.tabs.index];
             match &self.items.state.selected() {
-                Some(_) => Some(self.items.get_item()),
+                Some(_) => Some(self.items.get_item()?),
                 None => None,
             }
         } else {

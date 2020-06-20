@@ -1,6 +1,4 @@
 #!/bin/sh
 
-set -e
-
 export MEAIN_TEST_ENV=1
-cargo run "$@"
+RUST_BACKTRACE=1 cargo run "$@"
