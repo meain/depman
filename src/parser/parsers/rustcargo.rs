@@ -121,35 +121,38 @@ impl RustCargo {
                 }
             }
 
-            if let Value::Table(target) = &conf["target"] {
-                for g in target.keys() {
-                    if let Some(ggg) = target.get(g).unwrap().get("dependencies") {
-                        if let Value::Table(gg) = ggg {
-                            let mut group: BTreeMap<String, Option<VersionReq>> = BTreeMap::new();
-                            for dep in gg.keys() {
-                                let version_req = match &gg[dep] {
-                                    Value::String(v) => match VersionReq::parse(&v) {
-                                        Ok(vr) => Some(vr),
-                                        Err(_) => None,
-                                    },
-                                    Value::Table(t) => {
-                                        if let Some(vs) = t.get("version") {
-                                            match vs {
-                                                Value::String(v) => VersionReq::parse(&v).ok(),
-                                                _ => None,
+            if let Some(t) = &conf.get("target") {
+                if let Value::Table(target) = t {
+                    for g in target.keys() {
+                        if let Some(ggg) = target.get(g).unwrap().get("dependencies") {
+                            if let Value::Table(gg) = ggg {
+                                let mut group: BTreeMap<String, Option<VersionReq>> =
+                                    BTreeMap::new();
+                                for dep in gg.keys() {
+                                    let version_req = match &gg[dep] {
+                                        Value::String(v) => match VersionReq::parse(&v) {
+                                            Ok(vr) => Some(vr),
+                                            Err(_) => None,
+                                        },
+                                        Value::Table(t) => {
+                                            if let Some(vs) = t.get("version") {
+                                                match vs {
+                                                    Value::String(v) => VersionReq::parse(&v).ok(),
+                                                    _ => None,
+                                                }
+                                            } else {
+                                                None
                                             }
-                                        } else {
-                                            None
                                         }
-                                    }
-                                    _ => None,
-                                };
-                                group.insert(dep.to_string(), version_req);
+                                        _ => None,
+                                    };
+                                    group.insert(dep.to_string(), version_req);
+                                }
+                                groups.insert(
+                                    format!("target.{}.dependencies", g.to_string()),
+                                    group,
+                                );
                             }
-                            groups.insert(
-                                format!("target.{}.dependencies", g.to_string()),
-                                group,
-                            );
                         }
                     }
                 }
