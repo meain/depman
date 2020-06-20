@@ -4,4 +4,5 @@ set -e
 
 
 cd testfiles
-python3 -m http.server
+command -v quickserve || cargo install quickserve
+quickserve 8000
