@@ -16,6 +16,7 @@ use crate::parser::{stringify, Project, SearchDep, UpgradeType};
 pub struct AppState {
     tab: usize,
     dep: Option<usize>,
+    updated_items: HashMap<String, String>
 }
 
 #[derive(Debug)]
@@ -263,6 +264,7 @@ impl App {
         AppState {
             tab: self.tabs.index,
             dep,
+            updated_items: self.updated_items.clone()
         }
     }
 
@@ -276,6 +278,7 @@ impl App {
         let dep_versions = self.get_current_version_strings();
         self.versions = StatefulList::with_items(dep_versions);
         self.versions.state.select(self.get_current_version_index());
+        self.updated_items = state.updated_items;
     }
 
     pub fn delete_current_dep(&self) -> bool {
@@ -659,16 +662,16 @@ impl App {
                 let upgrade_type = self.project.get_upgrade_type(&current_tab, &item);
                 // use UpgradeType::Breaking instead of is_newer_available
                 let breaking_changes_string = match upgrade_type {
-                    UpgradeType::Breaking => "+",
+                    UpgradeType::Breaking => " + ",
                     _ => "",
                 };
                 let updated_string = match self.updated_items.get(item){
-                    Some(v) => format!(" ... updated to {}", v),
+                    Some(v) => format!("... updated to {}", v),
                     None => "".to_string()
                 };
                 items.push(Text::styled(
                     format!(
-                        "{} ({} > {})  {} {}",
+                        "{} ({} > {}){}  {}",
                         item,
                         stringify(&self.project.get_current_version(&item)),
                         stringify(&self.project.get_semver_version(&current_tab, &item)),
