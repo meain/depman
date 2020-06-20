@@ -13,7 +13,6 @@ use crate::{
     render::InstallCandidate,
 };
 
-
 /// For lockfile
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 struct DepWithVersion {
@@ -60,8 +59,8 @@ pub struct RustCargo;
 impl RustCargo {
     pub fn parse_config(folder: &str) -> Config {
         let path_string = format!("{}/Cargo.toml", folder);
-        let text =
-            fs::read_to_string(&path_string).unwrap_or_else(|_| panic!("Unable to read {}", &path_string));
+        let text = fs::read_to_string(&path_string)
+            .unwrap_or_else(|_| panic!("Unable to read {}", &path_string));
         let parsed: Value =
             toml::from_str(&text).unwrap_or_else(|_| panic!("Unable to parse {}", &path_string));
 
@@ -105,6 +104,16 @@ impl RustCargo {
                                 Ok(vr) => Some(vr),
                                 Err(_) => None,
                             },
+                            Value::Table(t) => {
+                                if let Some(vs) = t.get("version") {
+                                    match vs {
+                                        Value::String(v) => VersionReq::parse(&v).ok(),
+                                        _ => None,
+                                    }
+                                } else {
+                                    None
+                                }
+                            }
                             _ => None,
                         };
                         group.insert(dep.to_string(), version_req);
@@ -123,14 +132,17 @@ impl RustCargo {
 
     pub fn parse_lockfile(folder: &str) -> Lockfile {
         let path_string = format!("{}/Cargo.lock", folder);
-        let text =
-            fs::read_to_string(&path_string).unwrap_or_else(|_| panic!("Unable to read {}", &path_string));
+        let text = fs::read_to_string(&path_string)
+            .unwrap_or_else(|_| panic!("Unable to read {}", &path_string));
         let parsed: LockFile =
             toml::from_str(&text).unwrap_or_else(|_| panic!("Unable to parse {}", &path_string));
 
         let mut packages = HashMap::new();
         for package in parsed.package {
-            packages.insert(package.name.to_string(), Version::parse(&package.version).ok().unwrap());
+            packages.insert(
+                package.name.to_string(),
+                Version::parse(&package.version).ok().unwrap(),
+            );
         }
         packages
     }
@@ -207,14 +219,13 @@ impl RustCargo {
             .await?
             .json()
             .await?;
-        Ok(
-            resp.crates
-                .into_iter()
-                .map(|x| SearchDep {
-                    name: x.name,
-                    version: x.newest_version,
-                })
-                .collect(),
-        )
+        Ok(resp
+            .crates
+            .into_iter()
+            .map(|x| SearchDep {
+                name: x.name,
+                version: x.newest_version,
+            })
+            .collect())
     }
 }
