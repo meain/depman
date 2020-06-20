@@ -13,6 +13,18 @@ use crate::{
     render::InstallCandidate,
 };
 
+
+/// For lockfile
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+struct DepWithVersion {
+    name: String,
+    version: String,
+}
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct LockFile {
+    package: Vec<DepWithVersion>,
+}
+
 /// For pulling versions
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct CargoResponseCrate {
@@ -113,24 +125,12 @@ impl RustCargo {
         let path_string = format!("{}/Cargo.lock", folder);
         let text =
             fs::read_to_string(&path_string).unwrap_or_else(|_| panic!("Unable to read {}", &path_string));
-        let parsed: Value =
+        let parsed: LockFile =
             toml::from_str(&text).unwrap_or_else(|_| panic!("Unable to parse {}", &path_string));
 
         let mut packages = HashMap::new();
-        if let Value::Table(conf) = parsed {
-            if let Some(pgs) = conf.get("package") {
-                if let Value::Array(p) = pgs {
-                    for item in p {
-                        if let Value::Table(it) = item {
-                            if let Value::String(name) = it.get("name").unwrap() {
-                                if let Value::String(ver) = it.get("version").unwrap() {
-                                    packages.insert(name.to_string(), Version::parse(ver).unwrap());
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        for package in parsed.package {
+            packages.insert(package.name.to_string(), Version::parse(&package.version).ok().unwrap());
         }
         packages
     }
