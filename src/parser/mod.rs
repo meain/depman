@@ -1,4 +1,3 @@
-pub mod determinekind;
 mod parsers;
 
 use futures::future::try_join_all;
@@ -7,10 +6,15 @@ use std::collections::hash_map::HashMap;
 use std::collections::BTreeMap;
 use std::string::ToString;
 
-use determinekind::ParserKind;
 use crate::render::InstallCandidate;
 
 use serde::{Deserialize, Serialize};
+
+#[derive(Clone)]
+pub enum ParserKind {
+    JavascriptNpm,
+    RustCargo,
+}
 
 pub enum UpgradeType {
     None,
@@ -80,6 +84,15 @@ pub fn stringify<T: ToString>(value: &Option<T>) -> String {
 
 // Mostly for derived values
 impl Project {
+    pub fn determine_kind(folder: &str) -> Option<ParserKind> {
+        if parsers::is_this_it(folder, &ParserKind::JavascriptNpm) {
+            Some(ParserKind::JavascriptNpm)
+        } else if parsers::is_this_it(folder, &ParserKind::RustCargo) {
+            Some(ParserKind::RustCargo)
+        } else {
+            None
+        }
+    }
     pub async fn parse(folder: &str, kind: &ParserKind) -> Project {
         let config = parsers::parse_config(folder, kind);
         let lockfile = parsers::parse_lockfile(folder, kind);

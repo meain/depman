@@ -2,6 +2,7 @@ use std::collections::hash_map::HashMap;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
+use std::path::Path;
 
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
@@ -57,6 +58,10 @@ struct CratesIOSearchResp {
 
 pub struct RustCargo;
 impl RustCargo {
+    pub fn is_this_it(folder: &str) -> bool {
+        Path::new(&format!("{}/Cargo.toml", folder)).exists()
+    }
+
     pub fn parse_config(folder: &str) -> Config {
         let path_string = format!("{}/Cargo.toml", folder);
         let text = fs::read_to_string(&path_string)

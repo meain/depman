@@ -15,7 +15,6 @@ use tui::backend::TermionBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::Terminal;
 
-use parser::determinekind::ParserKind;
 use parser::{stringify, Project};
 
 #[allow(dead_code)]
@@ -44,7 +43,7 @@ fn printer(config: &Project) {
 async fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     let folder = if args.len() > 1 { &args[1] } else { "." };
-    let kind = ParserKind::determine_kind(&folder).expect("Unsupported package manager");
+    let kind = Project::determine_kind(&folder).expect("Unsupported package manager");
     println!("Fetching dependency info...");
     let project = Project::parse(folder, &kind).await;
     // printer(&project);

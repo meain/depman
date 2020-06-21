@@ -62,6 +62,10 @@ struct NpmSearchResponse {
 
 pub struct JavascriptNpm;
 impl JavascriptNpm {
+    pub fn is_this_it(folder: &str) -> bool {
+        Path::new(&format!("{}/package.json", folder)).exists()
+    }
+
     pub fn parse_config(folder: &str) -> Config {
         let path_string = format!("{}/package.json", folder);
         let path = Path::new(&path_string);

@@ -1,12 +1,19 @@
 mod javascriptnpm;
 mod rustcargo;
 
-use super::{determinekind::ParserKind, DepInfo, SearchDep};
+use super::{ParserKind, DepInfo, SearchDep};
 use super::{Config, Lockfile};
 
 use crate::render::InstallCandidate;
 use javascriptnpm::JavascriptNpm;
 use rustcargo::RustCargo;
+
+pub fn is_this_it(folder: &str, kind: &ParserKind) -> bool {
+    match kind {
+        ParserKind::RustCargo => RustCargo::is_this_it(folder),
+        ParserKind::JavascriptNpm => JavascriptNpm::is_this_it(folder),
+    }
+}
 
 pub fn parse_config(folder: &str, kind: &ParserKind) -> Config {
     match kind {

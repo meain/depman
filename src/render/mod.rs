@@ -10,8 +10,7 @@ use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Tex
 use std::process::Command;
 use tui::terminal::Frame;
 
-use crate::parser::determinekind::ParserKind;
-use crate::parser::{stringify, Project, SearchDep, UpgradeType};
+use crate::parser::{stringify, Project, SearchDep, UpgradeType, ParserKind};
 
 pub struct AppState {
     tab: usize,
