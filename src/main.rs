@@ -20,15 +20,15 @@ use parser::{stringify, Project};
 #[allow(dead_code)]
 fn printer(config: &Project) {
     for group in config.get_groups().iter() {
-        for name in config.get_deps_in_group(group) {
+        for name in config.get_deps_in_group(&group.value) {
             let name = &name;
-            let specified_version = &config.get_specified_version(group, name);
+            let specified_version = &config.get_specified_version(&group.value, name);
             let current_version = &config.get_current_version(name);
             let latest_version = &config.get_latest_version(name);
-            let latest_semver_version = &config.get_semver_version(group, name);
+            let latest_semver_version = &config.get_semver_version(&group.value, name);
             println!(
                 "[{}] {} : {}({}) => {}({})",
-                group,
+                group.value,
                 name,
                 stringify(specified_version),
                 stringify(current_version),

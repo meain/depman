@@ -56,24 +56,29 @@ impl Iterator for SinSignal {
     }
 }
 
+#[derive(Clone)]
+pub struct TabItem {
+    pub value: String,
+    pub label: String,
+}
 pub struct TabsState {
-    pub titles: Vec<String>,
+    pub items: Vec<TabItem>,
     pub index: usize,
 }
 
 impl TabsState {
-    pub fn new(titles: Vec<String>) -> TabsState {
-        TabsState { titles, index: 0 }
+    pub fn new(items: Vec<TabItem>) -> TabsState {
+        TabsState { items, index: 0 }
     }
     pub fn next(&mut self) {
-        self.index = (self.index + 1) % self.titles.len();
+        self.index = (self.index + 1) % self.items.len();
     }
 
     pub fn previous(&mut self) {
         if self.index > 0 {
             self.index -= 1;
         } else {
-            self.index = self.titles.len() - 1;
+            self.index = self.items.len() - 1;
         }
     }
 }

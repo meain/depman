@@ -1,8 +1,8 @@
 mod javascriptnpm;
 mod rustcargo;
 
-use super::{ParserKind, DepInfo, SearchDep};
 use super::{Config, Lockfile};
+use super::{DepInfo, ParserKind, SearchDep};
 
 use crate::render::InstallCandidate;
 use javascriptnpm::JavascriptNpm;
@@ -42,14 +42,14 @@ pub async fn fetch_dep_info(
 pub fn delete_dep(kind: &ParserKind, folder: &str, group: &str, name: &str) -> bool {
     match kind {
         ParserKind::RustCargo => RustCargo::delete_dep(folder, group, name).is_ok(),
-        ParserKind::JavascriptNpm => JavascriptNpm::delete_dep(folder, group, name).is_ok()
+        ParserKind::JavascriptNpm => JavascriptNpm::delete_dep(folder, group, name).is_ok(),
     }
 }
 
 pub fn install_dep(kind: &ParserKind, folder: &str, dep: InstallCandidate) -> bool {
     match kind {
         ParserKind::RustCargo => RustCargo::install_dep(dep, folder).is_ok(),
-        ParserKind::JavascriptNpm => JavascriptNpm::install_dep(dep, folder).is_ok()
+        ParserKind::JavascriptNpm => JavascriptNpm::install_dep(dep, folder).is_ok(),
     }
 }
 

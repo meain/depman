@@ -10,12 +10,12 @@ use tui::widgets::{Block, BorderType, Borders, Clear, List, Paragraph, Tabs, Tex
 use std::process::Command;
 use tui::terminal::Frame;
 
-use crate::parser::{stringify, Project, SearchDep, UpgradeType, ParserKind};
+use crate::parser::{stringify, ParserKind, Project, SearchDep, UpgradeType};
 
 pub struct AppState {
     tab: usize,
     dep: Option<usize>,
-    updated_items: HashMap<String, String>
+    updated_items: HashMap<String, String>,
 }
 
 #[derive(Debug)]
@@ -46,13 +46,13 @@ pub struct App {
     message: Option<String>,
     pub search_string: String,
     pub search_result: StatefulList<SearchDep>,
-    updated_items: HashMap<String, String>
+    updated_items: HashMap<String, String>,
 }
 
 impl App {
     pub fn new(project: Project, kind: ParserKind, folder: &str) -> App {
         let dep_kinds = project.get_groups();
-        let dep_names = project.get_deps_in_group(&dep_kinds[0]);
+        let dep_names = project.get_deps_in_group(&dep_kinds[0].value);
         let mut dep_versions = vec![];
         if !dep_names.is_empty() {
             if let Some(dep) = project.get_dep_versions(&dep_names[0]) {
@@ -71,7 +71,7 @@ impl App {
             help_content_pos: 0,
             search_result: StatefulList::with_items(vec![]),
             search_string: "".to_string(),
-            updated_items: HashMap::new()
+            updated_items: HashMap::new(),
         }
     }
 
@@ -161,7 +161,7 @@ impl App {
         self.tabs.next();
         let dep_names = self
             .project
-            .get_deps_in_group(&self.tabs.titles[self.tabs.index]);
+            .get_deps_in_group(&self.tabs.items[self.tabs.index].value);
         self.items = StatefulList::with_items(dep_names);
         self.items.next();
         let dep_versions = self.get_current_version_strings();
@@ -172,7 +172,7 @@ impl App {
         self.tabs.previous();
         let dep_names = self
             .project
-            .get_deps_in_group(&self.tabs.titles[self.tabs.index]);
+            .get_deps_in_group(&self.tabs.items[self.tabs.index].value);
         self.items = StatefulList::with_items(dep_names);
         self.items.next();
 
@@ -182,7 +182,7 @@ impl App {
     }
 
     pub fn _get_current_tab_name(&self) -> String {
-        self.tabs.titles[self.tabs.index].to_string()
+        self.tabs.items[self.tabs.index].value.to_string()
     }
 
     pub fn top(&mut self) {
@@ -251,7 +251,7 @@ impl App {
                     }
                 }
                 m => {
-                    if self.items.items.len() > m+1 {
+                    if self.items.items.len() > m + 1 {
                         Some(m)
                     } else {
                         Some(m - 1)
@@ -263,7 +263,7 @@ impl App {
         AppState {
             tab: self.tabs.index,
             dep,
-            updated_items: self.updated_items.clone()
+            updated_items: self.updated_items.clone(),
         }
     }
 
@@ -271,7 +271,7 @@ impl App {
         self.tabs.index = state.tab;
         let dep_names = self
             .project
-            .get_deps_in_group(&self.tabs.titles[self.tabs.index]);
+            .get_deps_in_group(&self.tabs.items[self.tabs.index].value);
         self.items = StatefulList::with_items(dep_names);
         self.items.state.select(state.dep);
         let dep_versions = self.get_current_version_strings();
@@ -299,7 +299,7 @@ impl App {
                 Some(InstallCandidate {
                     name: current_dep,
                     version: version_string,
-                    kind: self.tabs.titles[self.tabs.index].to_string(),
+                    kind: self.tabs.items[self.tabs.index].value.to_string(),
                 })
             }
             PopupKind::SearchList => {
@@ -318,7 +318,8 @@ impl App {
     pub fn install_dep(&mut self) -> bool {
         let install_candidate = self.get_install_candidate();
         if let Some(ic) = install_candidate {
-            self.updated_items.insert(ic.name.to_string(), ic.version.to_string());
+            self.updated_items
+                .insert(ic.name.to_string(), ic.version.to_string());
             self.project.install_dep(&self.kind, &self.folder, ic);
             true
         } else {
@@ -336,7 +337,7 @@ impl App {
     }
 
     fn get_current_dep_name(&self) -> Option<String> {
-        if self.tabs.index < self.tabs.titles.len() {
+        if self.tabs.index < self.tabs.items.len() {
             // let group = &self.tabs.titles[self.tabs.index];
             match &self.items.state.selected() {
                 Some(_) => Some(self.items.get_item()?),
@@ -574,9 +575,16 @@ impl App {
     }
 
     pub fn render_tabs<B: Backend>(&mut self, mut f: &mut Frame<B>, chunk: Vec<Rect>) {
+        let titles = self
+            .tabs
+            .items
+            .clone()
+            .into_iter()
+            .map(|i| i.label)
+            .collect::<Vec<String>>();
         let tabs = Tabs::default()
             .block(Block::default())
-            .titles(&self.tabs.titles)
+            .titles(&titles)
             .select(self.tabs.index)
             .style(Style::default().fg(Color::Cyan))
             .highlight_style(Style::default().fg(Color::Yellow));
@@ -645,8 +653,8 @@ impl App {
     }
 
     fn get_current_group_name(&self) -> Option<String> {
-        if self.tabs.index < self.tabs.titles.len() {
-            Some(self.tabs.titles[self.tabs.index].to_string())
+        if self.tabs.index < self.tabs.items.len() {
+            Some(self.tabs.items[self.tabs.index].value.to_string())
         } else {
             None
         }
@@ -664,9 +672,9 @@ impl App {
                     UpgradeType::Breaking => " + ",
                     _ => "",
                 };
-                let updated_string = match self.updated_items.get(item){
+                let updated_string = match self.updated_items.get(item) {
                     Some(v) => format!("... updated to {}", v),
-                    None => "".to_string()
+                    None => "".to_string(),
                 };
                 items.push(Text::styled(
                     format!(

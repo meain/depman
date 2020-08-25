@@ -71,21 +71,27 @@ impl JavascriptNpm {
         let path = Path::new(&path_string);
         let file = File::open(path).unwrap_or_else(|_| panic!("Unable to read {}", &path_string));
         let reader = BufReader::new(file);
-        let parsed: JavascriptPackageJson =
-            serde_json::from_reader(reader).unwrap_or_else(|_| panic!("Unable to parse {}", &path_string));
+        let parsed: JavascriptPackageJson = serde_json::from_reader(reader)
+            .unwrap_or_else(|_| panic!("Unable to parse {}", &path_string));
 
         let mut groups: BTreeMap<String, DependencyGroup> = BTreeMap::new();
         if let Some(grp) = parsed.dependencies {
             let mut group: BTreeMap<String, Option<VersionReq>> = BTreeMap::new();
             for dep in grp.keys() {
-                group.insert(dep.to_string(), VersionReq::parse(grp.get(dep).unwrap()).ok());
+                group.insert(
+                    dep.to_string(),
+                    VersionReq::parse(grp.get(dep).unwrap()).ok(),
+                );
             }
             groups.insert("dependencies".to_string(), group);
         }
         if let Some(grp) = parsed.dev_dependencies {
             let mut group: BTreeMap<String, Option<VersionReq>> = BTreeMap::new();
             for dep in grp.keys() {
-                group.insert(dep.to_string(), VersionReq::parse(grp.get(dep).unwrap()).ok());
+                group.insert(
+                    dep.to_string(),
+                    VersionReq::parse(grp.get(dep).unwrap()).ok(),
+                );
             }
             groups.insert("dev-dependencies".to_string(), group);
         }
@@ -107,12 +113,15 @@ impl JavascriptNpm {
         let path = Path::new(&path_string);
         let file = File::open(path).unwrap_or_else(|_| panic!("Unable to read {}", &path_string));
         let reader = BufReader::new(file);
-        let parsed: JavascriptPackageJsonLockfile =
-            serde_json::from_reader(reader).unwrap_or_else(|_| panic!("Unable to parse {}", &path_string));
+        let parsed: JavascriptPackageJsonLockfile = serde_json::from_reader(reader)
+            .unwrap_or_else(|_| panic!("Unable to parse {}", &path_string));
 
         let mut packages: Lockfile = HashMap::new();
         for dep in parsed.dependencies.keys() {
-            packages.insert(dep.to_string(), Version::parse(&parsed.dependencies.get(dep).unwrap().version).unwrap());
+            packages.insert(
+                dep.to_string(),
+                Version::parse(&parsed.dependencies.get(dep).unwrap().version).unwrap(),
+            );
         }
         packages
     }

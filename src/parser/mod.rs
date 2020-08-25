@@ -6,7 +6,7 @@ use std::collections::hash_map::HashMap;
 use std::collections::BTreeMap;
 use std::string::ToString;
 
-use crate::render::InstallCandidate;
+use crate::{events::TabItem, render::InstallCandidate};
 
 use serde::{Deserialize, Serialize};
 
@@ -160,10 +160,19 @@ impl Project {
     }
 
     // pub async fn search_deps(kind: &ParserKind, query: &str) {}
-    pub fn get_groups(&self) -> Vec<String> {
+
+    pub fn get_groups(&self) -> Vec<TabItem> {
         let mut groups = vec![];
         for key in self.config.groups.keys() {
-            groups.push(key.to_string())
+            let item = TabItem {
+                value: key.to_string(),
+                label: format!(
+                    "{}({})",
+                    key.to_string(),
+                    self.config.groups[key].keys().len()
+                ),
+            };
+            groups.push(item)
         }
         groups
     }
@@ -261,7 +270,7 @@ impl Project {
         let author = &self.metadata.get(name)?.author;
         match author {
             Some(a) => Some(a.to_string()),
-            None => None
+            None => None,
         }
     }
     pub fn get_homepage(&self, name: &str) -> Option<String> {
