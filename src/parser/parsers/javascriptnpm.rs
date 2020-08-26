@@ -142,6 +142,7 @@ impl JavascriptNpm {
             .collect();
 
         Ok(DepInfo {
+            name: name.to_string(),
             author: resp.author,
             homepage: resp.homepage,
             license: resp.license,

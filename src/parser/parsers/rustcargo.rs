@@ -208,6 +208,7 @@ impl RustCargo {
             .collect();
 
         Ok(DepInfo {
+            name: name.to_string(),
             author: None,
             homepage: resp.info.homepage,
             license: resp.info.license,
