@@ -110,59 +110,17 @@ impl Project {
             .map(|x| parsers::fetch_dep_info(x, kind))
             .collect::<Vec<_>>();
 
-        let total_items = fetchers.len();
-        let mut completed_items = 0;
-
         let mut metadata = HashMap::new();
         let mut st = stream::iter(fetchers).chunks(10).map(|c| try_join_all(c));
         while let Some(chunk) = st.next().await {
             if let Ok(items) = chunk.await {
                 for mut item in items {
-                    completed_items += 1;
-                    print!("\r{}/{} complete", completed_items, total_items);
                     item.versions.sort();
                     item.versions = item.versions.into_iter().rev().collect();
                     metadata.insert(item.name.to_string(), item);
                 }
             }
         }
-
-        // stream::iter(fetchers).chunks(10).map(|x| async {
-        //     let results = try_join_all(x).await.unwrap_or_default();
-        //     println!("results: {:?}", results);
-        // });
-
-        // for chunk in fetchers.chunks(10) {
-        //     println!("chunk: {:?}", chunk);
-        //     let results = try_join_all(chunk).await.unwrap_or_default();
-        // }
-
-        // for chunk in fetchers.collect::<Vec<_>>().chunks(10 as usize).collect::<Vec<Vec<_>>>() {
-        //     let results = try_join_all(chunk).await.unwrap_or_default();
-        //     println!("results: {:?}", results);
-        // }
-        // let results = try_join_all(fetchers).await.unwrap_or_default();
-
-        // let mut results = Vec::new();
-        // stream::iter(fetchers)
-        //     .map(|fetcher| async move { fetcher.await })
-        //     .for_each_concurrent(10, |b| async move {
-        //         match b.await {
-        //             Ok(b) => results.push(Some(b)),
-        //             Err(_) => results.push(None),
-        //         };
-        //     });
-        // println!("results: {:?}", results);
-
-        // let mut metadata = HashMap::new();
-        // if results.len() == dep_names.len() {
-        //     for (count, item) in dep_names.into_iter().enumerate() {
-        //         let mut api_data = results[count].clone();
-        //         api_data.versions.sort();
-        //         api_data.versions = api_data.versions.into_iter().rev().collect();
-        //         metadata.insert(item, api_data);
-        //     }
-        // }
 
         Project {
             config,
