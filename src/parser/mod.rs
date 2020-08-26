@@ -111,14 +111,12 @@ impl Project {
             .collect::<Vec<_>>();
 
         let mut metadata = HashMap::new();
-        let mut st = stream::iter(fetchers).chunks(10).map(|c| try_join_all(c));
+        let mut st = stream::iter(fetchers).buffer_unordered(5);
         while let Some(chunk) = st.next().await {
-            if let Ok(items) = chunk.await {
-                for mut item in items {
-                    item.versions.sort();
-                    item.versions = item.versions.into_iter().rev().collect();
-                    metadata.insert(item.name.to_string(), item);
-                }
+            if let Ok(mut item) = chunk {
+                item.versions.sort();
+                item.versions = item.versions.into_iter().rev().collect();
+                metadata.insert(item.name.to_string(), item);
             }
         }
 
