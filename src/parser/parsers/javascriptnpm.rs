@@ -121,7 +121,7 @@ impl JavascriptNpm {
             packages.insert(
                 dep.to_string(),
                 Version::parse(&parsed.dependencies.get(dep).unwrap().version)
-                    .unwrap_or_else(|_| Version::parse("0.0.0").unwrap()),  // or_else to deal with file:... like stuff
+                    .unwrap_or_else(|_| Version::parse("0.0.0").unwrap()), // or_else to deal with file:... like stuff
             );
         }
         packages
