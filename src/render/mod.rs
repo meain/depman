@@ -32,6 +32,7 @@ pub enum PopupKind {
     Versions,
     SearchInput,
     SearchList,
+    FilterInput,
     None,
 }
 pub struct App {
@@ -45,6 +46,7 @@ pub struct App {
     help_content_pos: u16,
     message: Option<String>,
     pub search_string: String,
+    pub filter_string: String,
     pub search_result: StatefulList<SearchDep>,
     updated_items: HashMap<String, String>,
 }
@@ -71,6 +73,7 @@ impl App {
             help_content_pos: 0,
             search_result: StatefulList::with_items(vec![]),
             search_string: "".to_string(),
+            filter_string: "".to_string(),
             updated_items: HashMap::new(),
         }
     }
@@ -120,6 +123,7 @@ impl App {
         self.popup = match self.popup {
             PopupKind::SearchList => PopupKind::SearchInput,
             PopupKind::SearchInput => PopupKind::None,
+            PopupKind::FilterInput => PopupKind::None,
             PopupKind::Help => PopupKind::None,
             PopupKind::Versions => PopupKind::None,
             PopupKind::Message => {
@@ -364,15 +368,27 @@ impl App {
         self.search_result.next();
     }
 
-    pub fn search_update(&mut self, input: Key) {
-        match input {
-            Key::Char(s) => {
-                self.search_string.push(s);
-            }
-            Key::Backspace => {
-                self.search_string.pop();
-            }
-            _ => unreachable!(),
+    pub fn input_update(&mut self, input: Key) {
+        match self.popup {
+            PopupKind::SearchInput => match input {
+                Key::Char(s) => {
+                    self.search_string.push(s);
+                }
+                Key::Backspace => {
+                    self.search_string.pop();
+                }
+                _ => unreachable!(),
+            },
+            PopupKind::FilterInput => match input {
+                Key::Char(s) => {
+                    self.filter_string.push(s);
+                }
+                Key::Backspace => {
+                    self.filter_string.pop();
+                }
+                _ => unreachable!(),
+            },
+            _ => unreachable!()
         }
     }
 
@@ -389,7 +405,26 @@ impl App {
                 )
                 .style(Style::default())
                 .alignment(Alignment::Left)
-                .scroll(self.help_content_pos)
+                .wrap(true);
+            let area = centered_rect_absolute(50, 3, f.size());
+            f.render_widget(Clear, area); //this clears out the background
+            f.render_widget(block, area);
+        }
+    }
+
+    pub fn display_filter_input<B: Backend>(&mut self, f: &mut Frame<B>) {
+        if let PopupKind::FilterInput = self.popup {
+            let text = vec![Text::raw(&self.filter_string)];
+            let block = Paragraph::new(text.iter())
+                .block(
+                    Block::default()
+                        .title("Filter dependencies")
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(Color::White)),
+                )
+                .style(Style::default())
+                .alignment(Alignment::Left)
                 .wrap(true);
             let area = centered_rect_absolute(50, 3, f.size());
             f.render_widget(Clear, area); //this clears out the background
@@ -665,7 +700,7 @@ impl App {
             let current_tab = &self.get_current_group_name().unwrap();
             let dc_upgrade_type = self.project.get_upgrade_type(&current_tab, &dc);
             let mut items = vec![];
-            for item in self.items.items.iter() {
+            for item in self.items.items.iter().filter(|x| x.contains(&self.filter_string)) {
                 let upgrade_type = self.project.get_upgrade_type(&current_tab, &item);
                 // use UpgradeType::Breaking instead of is_newer_available
                 let breaking_changes_string = match upgrade_type {
@@ -679,7 +714,7 @@ impl App {
                 items.push(Text::styled(
                     format!(
                         "{} ({} > {}){}  {}",
-                        item,
+                        &item,
                         stringify(&self.project.get_current_version(&item)),
                         stringify(&self.project.get_semver_version(&current_tab, &item)),
                         breaking_changes_string,

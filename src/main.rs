@@ -94,6 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 app.display_message(&mut f);
                 app.display_search_input(&mut f);
                 app.render_search_results(&mut f);
+                app.display_filter_input(&mut f);
             })?;
 
             if let Some(term) = search_in_next_iter {
@@ -117,10 +118,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             app.popup = PopupKind::Message;
                             search_in_next_iter = Some(app.search_string.to_string());
                         }
-                        Key::Char(_) | Key::Backspace => app.search_update(input),
+                        Key::Char(_) | Key::Backspace => app.input_update(input),
                         Key::Esc => {
                             events.enable_exit_key();
                             app.search_string = "".to_string();
+                            app.popup = PopupKind::None;
+                        }
+                        _ => {}
+                    },
+                    PopupKind::FilterInput => match input {
+                        Key::Char('\n') => {
+                            events.enable_exit_key();
+                            app.popup = PopupKind::None;
+                        }
+                        Key::Char(_) | Key::Backspace => app.input_update(input),
+                        Key::Esc => {
+                            events.enable_exit_key();
+                            app.filter_string = "".to_string();
                             app.popup = PopupKind::None;
                         }
                         _ => {}
@@ -136,6 +150,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         Key::Char('s') => {
                             events.disable_exit_key();
                             app.popup = PopupKind::SearchInput;
+                        }
+                        Key::Char('/') => {
+                            events.disable_exit_key();
+                            app.popup = PopupKind::FilterInput;
                         }
                         Key::Char('D') => {
                             if app.delete_current_dep() {
