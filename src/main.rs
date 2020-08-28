@@ -135,6 +135,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         Key::Esc => {
                             events.enable_exit_key();
                             app.filter_string = "".to_string();
+                            app.update_items_to_render();
                             app.popup = PopupKind::None;
                         }
                         _ => {}

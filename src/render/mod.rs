@@ -40,7 +40,8 @@ pub struct App {
     kind: ParserKind,
     project: Project,
     tabs: TabsState,
-    items: StatefulList<String>,
+    items: Vec<String>,
+    items_to_render: StatefulList<String>,
     versions: StatefulList<String>,
     pub popup: PopupKind,
     help_content_pos: u16,
@@ -66,7 +67,8 @@ impl App {
             kind,
             project,
             tabs: TabsState::new(dep_kinds),
-            items: StatefulList::with_items(dep_names),
+            items: dep_names.clone(),
+            items_to_render: StatefulList::with_items(dep_names),
             versions: StatefulList::with_items(dep_versions),
             message: None,
             popup: PopupKind::None,
@@ -161,13 +163,24 @@ impl App {
         }
     }
 
+    pub fn update_items_to_render(&mut self) {
+        self.items_to_render = StatefulList::with_items(
+            self.items
+                .clone()
+                .into_iter()
+                .filter(|x| x.contains(&self.filter_string))
+                .collect(),
+        );
+        self.items_to_render.next();
+    }
+
     pub fn tab_next(&mut self) {
         self.tabs.next();
         let dep_names = self
             .project
             .get_deps_in_group(&self.tabs.items[self.tabs.index].value);
-        self.items = StatefulList::with_items(dep_names);
-        self.items.next();
+        self.items = dep_names;
+        self.update_items_to_render();
         let dep_versions = self.get_current_version_strings();
         self.versions = StatefulList::with_items(dep_versions);
         self.versions.state.select(self.get_current_version_index());
@@ -177,8 +190,8 @@ impl App {
         let dep_names = self
             .project
             .get_deps_in_group(&self.tabs.items[self.tabs.index].value);
-        self.items = StatefulList::with_items(dep_names);
-        self.items.next();
+        self.items = dep_names;
+        self.update_items_to_render();
 
         let dep_versions = self.get_current_version_strings();
         self.versions = StatefulList::with_items(dep_versions);
@@ -194,7 +207,7 @@ impl App {
             self.versions.first();
             self.versions.next()
         } else {
-            self.items.first();
+            self.items_to_render.first();
             let dep_versions = self.get_current_version_strings();
             self.versions = StatefulList::with_items(dep_versions);
             self.versions.state.select(self.get_current_version_index());
@@ -205,7 +218,7 @@ impl App {
         if let PopupKind::Versions = self.popup {
             self.versions.last();
         } else {
-            self.items.last();
+            self.items_to_render.last();
             let dep_versions = self.get_current_version_strings();
             self.versions = StatefulList::with_items(dep_versions);
             self.versions.state.select(self.get_current_version_index());
@@ -218,7 +231,7 @@ impl App {
             PopupKind::Help => self.help_content_pos += 1,
             PopupKind::SearchList => self.search_result.next(),
             _ => {
-                self.items.next();
+                self.items_to_render.next();
                 let dep_versions = self.get_current_version_strings();
                 self.versions = StatefulList::with_items(dep_versions);
                 self.versions.state.select(self.get_current_version_index());
@@ -236,7 +249,7 @@ impl App {
             }
             PopupKind::SearchList => self.search_result.previous(),
             _ => {
-                self.items.previous();
+                self.items_to_render.previous();
                 let dep_versions = self.get_current_version_strings();
                 self.versions = StatefulList::with_items(dep_versions);
                 self.versions.state.select(self.get_current_version_index());
@@ -245,17 +258,17 @@ impl App {
     }
 
     pub fn get_state(&self) -> AppState {
-        let dep = match self.items.state.selected() {
+        let dep = match self.items_to_render.state.selected() {
             Some(m) => match m {
                 0 => {
-                    if self.items.items.is_empty() {
+                    if self.items_to_render.items.is_empty() {
                         None
                     } else {
                         Some(0)
                     }
                 }
                 m => {
-                    if self.items.items.len() > m + 1 {
+                    if self.items_to_render.items.len() > m + 1 {
                         Some(m)
                     } else {
                         Some(m - 1)
@@ -276,8 +289,9 @@ impl App {
         let dep_names = self
             .project
             .get_deps_in_group(&self.tabs.items[self.tabs.index].value);
-        self.items = StatefulList::with_items(dep_names);
-        self.items.state.select(state.dep);
+        self.items = dep_names.clone();
+        self.items_to_render = StatefulList::with_items(dep_names);
+        self.items_to_render.state.select(state.dep);
         let dep_versions = self.get_current_version_strings();
         self.versions = StatefulList::with_items(dep_versions);
         self.versions.state.select(self.get_current_version_index());
@@ -343,8 +357,8 @@ impl App {
     fn get_current_dep_name(&self) -> Option<String> {
         if self.tabs.index < self.tabs.items.len() {
             // let group = &self.tabs.titles[self.tabs.index];
-            match &self.items.state.selected() {
-                Some(_) => Some(self.items.get_item()?),
+            match &self.items_to_render.state.selected() {
+                Some(_) => Some(self.items_to_render.get_item()?),
                 None => None,
             }
         } else {
@@ -382,9 +396,11 @@ impl App {
             PopupKind::FilterInput => match input {
                 Key::Char(s) => {
                     self.filter_string.push(s);
+                    self.update_items_to_render();
                 }
                 Key::Backspace => {
                     self.filter_string.pop();
+                    self.update_items_to_render();
                 }
                 _ => unreachable!(),
             },
@@ -465,6 +481,7 @@ impl App {
                 ["v/space", "show version list"],
                 ["o", "open homepage"],
                 ["p", "open package repo"],
+                ["/", "search installed packages"],
                 ["s", "search for package"],
                 ["D", "delete package"],
                 ["enter", "update/install package"],
@@ -610,6 +627,9 @@ impl App {
     }
 
     pub fn render_tabs<B: Backend>(&mut self, mut f: &mut Frame<B>, chunk: Vec<Rect>) {
+        // let dep_names = self
+        //     .project
+        //     .get_deps_in_group(&self.tabs.items[self.tabs.index].value);
         let titles = self
             .tabs
             .items
@@ -619,8 +639,8 @@ impl App {
                 format!(
                     "{}({})",
                     i.label,
-                    self.items
-                        .items
+                    self.project
+                        .get_deps_in_group(&i.value)
                         .iter()
                         .filter(|x| x.contains(&self.filter_string))
                         .collect::<Vec<_>>()
@@ -711,19 +731,14 @@ impl App {
             let current_tab = &self.get_current_group_name().unwrap();
             let dc_upgrade_type = self.project.get_upgrade_type(&current_tab, &dc);
             let mut items = vec![];
-            for item in self
-                .items
-                .items
-                .iter()
-                .filter(|x| x.contains(&self.filter_string))
-            {
+            for item in self.items_to_render.items.clone() {
                 let upgrade_type = self.project.get_upgrade_type(&current_tab, &item);
                 // use UpgradeType::Breaking instead of is_newer_available
                 let breaking_changes_string = match upgrade_type {
                     UpgradeType::Breaking => " + ",
                     _ => "",
                 };
-                let updated_string = match self.updated_items.get(item) {
+                let updated_string = match self.updated_items.get(&item) {
                     Some(v) => format!("... updated to {}", v),
                     None => "".to_string(),
                 };
@@ -755,7 +770,7 @@ impl App {
                 .style(Style::default())
                 .highlight_style(Style::default().fg(get_version_color(dc_upgrade_type)))
                 .highlight_symbol("■ "); // ║ ▓ ■
-            f.render_stateful_widget(block, chunk, &mut self.items.state);
+            f.render_stateful_widget(block, chunk, &mut self.items_to_render.state);
         } else {
             let text = vec![Text::styled(
                 "No dependencies available",
