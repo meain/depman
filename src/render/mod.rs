@@ -388,7 +388,7 @@ impl App {
                 }
                 _ => unreachable!(),
             },
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -615,7 +615,18 @@ impl App {
             .items
             .clone()
             .into_iter()
-            .map(|i| i.label)
+            .map(|i| {
+                format!(
+                    "{}({})",
+                    i.label,
+                    self.items
+                        .items
+                        .iter()
+                        .filter(|x| x.contains(&self.filter_string))
+                        .collect::<Vec<_>>()
+                        .len()
+                )
+            })
             .collect::<Vec<String>>();
         let tabs = Tabs::default()
             .block(Block::default())
@@ -700,7 +711,12 @@ impl App {
             let current_tab = &self.get_current_group_name().unwrap();
             let dc_upgrade_type = self.project.get_upgrade_type(&current_tab, &dc);
             let mut items = vec![];
-            for item in self.items.items.iter().filter(|x| x.contains(&self.filter_string)) {
+            for item in self
+                .items
+                .items
+                .iter()
+                .filter(|x| x.contains(&self.filter_string))
+            {
                 let upgrade_type = self.project.get_upgrade_type(&current_tab, &item);
                 // use UpgradeType::Breaking instead of is_newer_available
                 let breaking_changes_string = match upgrade_type {
@@ -723,10 +739,15 @@ impl App {
                     Style::default().fg(get_version_color(upgrade_type)),
                 ));
             }
+            let title = if self.filter_string.len() > 0 {
+                "Dependencies (filtered)"
+            } else {
+                "Dependencies"
+            };
             let block = List::new(items.into_iter())
                 .block(
                     Block::default()
-                        .title("Dependencies")
+                        .title(title)
                         .borders(Borders::ALL)
                         .border_type(BorderType::Rounded)
                         .border_style(Style::default().fg(Color::White)),

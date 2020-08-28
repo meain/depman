@@ -168,11 +168,7 @@ impl Project {
         for key in self.config.groups.keys() {
             let item = TabItem {
                 value: key.to_string(),
-                label: format!(
-                    "{}({})",
-                    key.to_string(),
-                    self.config.groups[key].keys().len()
-                ),
+                label: key.to_string(),
             };
             groups.push(item)
         }
