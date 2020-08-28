@@ -627,9 +627,6 @@ impl App {
     }
 
     pub fn render_tabs<B: Backend>(&mut self, mut f: &mut Frame<B>, chunk: Vec<Rect>) {
-        // let dep_names = self
-        //     .project
-        //     .get_deps_in_group(&self.tabs.items[self.tabs.index].value);
         let titles = self
             .tabs
             .items
