@@ -111,7 +111,7 @@ impl Project {
             .collect::<Vec<_>>();
 
         let mut metadata = HashMap::new();
-        let mut st = stream::iter(fetchers).buffer_unordered(5);
+        let mut st = stream::iter(fetchers).buffer_unordered(10);
         while let Some(chunk) = st.next().await {
             if let Ok(mut item) = chunk {
                 item.versions.sort();
