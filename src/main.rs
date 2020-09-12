@@ -73,6 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 app = App::new(project, kind.clone(), folder);
                 app.set_state(state);
                 reload = false;
+                app.update_items_to_render();
                 continue;
             }
             terminal.draw(|mut f| {
