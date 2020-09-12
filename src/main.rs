@@ -149,7 +149,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             drop(terminal);
                             std::process::exit(0);
                         }
-                        Key::Char('s') => {
+                        Key::Char('i') => {
                             events.disable_exit_key();
                             app.popup = PopupKind::SearchInput;
                         }

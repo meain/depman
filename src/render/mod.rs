@@ -482,7 +482,7 @@ impl App {
                 ["o", "open homepage"],
                 ["p", "open package repo"],
                 ["/", "search installed packages"],
-                ["s", "search for package"],
+                ["i", "search and install package"],
                 ["D", "delete package"],
                 ["enter", "update/install package"],
                 ["q", "quit depman"],
