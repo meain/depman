@@ -50,6 +50,7 @@ pub struct App {
     pub filter_string: String,
     pub search_result: StatefulList<SearchDep>,
     updated_items: HashMap<String, String>,
+    show_uptodate: bool,
 }
 
 impl App {
@@ -77,6 +78,7 @@ impl App {
             search_string: "".to_string(),
             filter_string: "".to_string(),
             updated_items: HashMap::new(),
+            show_uptodate: true,
         }
     }
 
@@ -168,6 +170,18 @@ impl App {
             self.items
                 .clone()
                 .into_iter()
+                .filter(|x| {
+                    let current_tab = &self.get_current_group_name();
+                    match current_tab {
+                        Some(ct) => {
+                            let upgrade_type = self.project.get_upgrade_type(&ct, &x);
+                            !(!self.show_uptodate
+                                && (matches!(upgrade_type, UpgradeType::None)
+                                    || matches!(upgrade_type, UpgradeType::Breaking)))
+                        }
+                        None => true,
+                    }
+                })
                 .filter(|x| x.contains(&self.filter_string))
                 .collect(),
         );
@@ -196,6 +210,11 @@ impl App {
         let dep_versions = self.get_current_version_strings();
         self.versions = StatefulList::with_items(dep_versions);
         self.versions.state.select(self.get_current_version_index());
+    }
+
+    pub fn toggle_show_uptodate(&mut self) {
+        self.show_uptodate = !self.show_uptodate;
+        self.update_items_to_render();
     }
 
     pub fn _get_current_tab_name(&self) -> String {
@@ -751,15 +770,22 @@ impl App {
                     Style::default().fg(get_version_color(upgrade_type)),
                 ));
             }
-            let title = if self.filter_string.len() > 0 {
-                "Dependencies (filtered)"
+            let mut filters = Vec::new();
+            if self.filter_string.len() > 0 {
+                filters.push("search");
+            }
+            if !self.show_uptodate {
+                filters.push("updateable");
+            }
+            let title = if filters.len() > 0 {
+                format!("Dependencies (filter:{})", filters.join(","))
             } else {
-                "Dependencies"
+                "Dependencies".to_string()
             };
             let block = List::new(items.into_iter())
                 .block(
                     Block::default()
-                        .title(title)
+                        .title(&title)
                         .borders(Borders::ALL)
                         .border_type(BorderType::Rounded)
                         .border_style(Style::default().fg(Color::White)),
