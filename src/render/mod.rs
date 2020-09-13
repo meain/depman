@@ -501,6 +501,7 @@ impl App {
                 ["o", "open homepage"],
                 ["p", "open package repo"],
                 ["/", "search installed packages"],
+                ["U", "toggle showing uptodate packages"],
                 ["i", "search and install package"],
                 ["D", "delete package"],
                 ["enter", "update/install package"],

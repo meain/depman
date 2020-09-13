@@ -1,6 +1,6 @@
 [package]
 name = "depman"
-version = "0.7.6"
+version = "0.7.7"
 authors = ["Abin Simon <abinsimon10@gmail.com>"]
 edition = "2018"
 description ="TUI to manage your dependencies"
