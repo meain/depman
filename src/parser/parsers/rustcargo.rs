@@ -171,10 +171,9 @@ impl RustCargo {
         }
     }
 
-    pub fn parse_lockfile(folder: &str) -> Lockfile {
+    pub fn parse_lockfile(folder: &str) -> Option<Lockfile> {
         let path_string = format!("{}/Cargo.lock", folder);
-        let text = fs::read_to_string(&path_string)
-            .unwrap_or_else(|_| panic!("Unable to read {}", &path_string));
+        let text = fs::read_to_string(&path_string).ok()?;
         let parsed: LockFile =
             toml::from_str(&text).unwrap_or_else(|_| panic!("Unable to parse {}", &path_string));
 
@@ -185,7 +184,7 @@ impl RustCargo {
                 Version::parse(&package.version).ok().unwrap(),
             );
         }
-        packages
+        Some(packages)
     }
 
     pub async fn fetch_dep_info(name: &str) -> Result<DepInfo, Box<dyn std::error::Error>> {

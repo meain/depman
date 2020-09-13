@@ -23,9 +23,13 @@ pub fn parse_config(folder: &str, kind: &ParserKind) -> Config {
 }
 
 pub fn parse_lockfile(folder: &str, kind: &ParserKind) -> Lockfile {
-    match kind {
+    let lockfile = match kind {
         ParserKind::RustCargo => RustCargo::parse_lockfile(folder),
         ParserKind::JavascriptNpm => JavascriptNpm::parse_lockfile(folder),
+    };
+    match lockfile {
+        Some(lf) => lf,
+        None => Lockfile::new()
     }
 }
 

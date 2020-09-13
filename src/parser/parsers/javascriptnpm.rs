@@ -108,10 +108,10 @@ impl JavascriptNpm {
         }
     }
 
-    pub fn parse_lockfile(folder: &str) -> Lockfile {
+    pub fn parse_lockfile(folder: &str) -> Option<Lockfile> {
         let path_string = format!("{}/package-lock.json", folder);
         let path = Path::new(&path_string);
-        let file = File::open(path).unwrap_or_else(|_| panic!("Unable to read {}", &path_string));
+        let file = File::open(path).ok()?;
         let reader = BufReader::new(file);
         let parsed: JavascriptPackageJsonLockfile = serde_json::from_reader(reader)
             .unwrap_or_else(|_| panic!("Unable to parse {}", &path_string));
@@ -124,7 +124,7 @@ impl JavascriptNpm {
                     .unwrap_or_else(|_| Version::parse("0.0.0").unwrap()), // or_else to deal with file:... like stuff
             );
         }
-        packages
+        Some(packages)
     }
 
     #[allow(clippy::useless_let_if_seq)]
